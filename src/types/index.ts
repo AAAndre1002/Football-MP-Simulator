@@ -45,6 +45,9 @@ export interface GameSave {
   balance: number;
   week: number;
   trainingFocus: keyof PlayerAttributes['technical'] | keyof PlayerAttributes['physical'] | keyof PlayerAttributes['mental'];
+  tacticalStyle: TacticalStyle;
+  trainedThisWeek: boolean;
+  matchPlayedThisWeek: boolean;
   lastMatch?: MatchResult;
   playedMatches: number;
   agentHired: boolean;
