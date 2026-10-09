@@ -15,22 +15,55 @@ const navItems = [
   { id: 'market', label: 'Mercado', icon: Banknote },
   { id: 'lifestyle', label: 'Estilo de vida', icon: CalendarDays },
 ];
+
 export default function App() {
   const { save, setSave, train, reset, playerClub, opponentClub } = useGameState();
   const [page, setPage] = useState('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = (id: string) => { setPage(id); setMenuOpen(false); };
-  const onResult = (result: MatchResult) => setSave(current => ({ ...current, lastMatch: result, playedMatches: current.playedMatches + 1, week: current.week + 1, balance: current.balance + 1250, player: { ...current.player, morale: Math.min(100, (current.player.morale ?? 60) + (result.homeScore >= result.awayScore ? 5 : -3)), fanRelationship: Math.min(100, (current.player.fanRelationship ?? 60) + (result.homeScore >= result.awayScore ? 3 : 0)) } }));
-  const hireAgent = () => setSave(current => ({ ...current, agentHired: true, balance: current.balance - 2500 }));
+
+  const onResult = (result: MatchResult) => setSave(current => {
+    if (current.matchPlayedThisWeek) return current;
+    const outcome = result.homeScore > result.awayScore ? 'win' : result.homeScore === result.awayScore ? 'draw' : 'loss';
+    const moraleChange = outcome === 'win' ? 5 : outcome === 'draw' ? 1 : -3;
+    return {
+      ...current,
+      lastMatch: result,
+      matchPlayedThisWeek: true,
+      playedMatches: current.playedMatches + 1,
+      balance: current.balance + 1250,
+      player: {
+        ...current.player,
+        morale: Math.max(0, Math.min(100, (current.player.morale ?? 60) + moraleChange)),
+        fanRelationship: Math.max(0, Math.min(100, (current.player.fanRelationship ?? 60) + (outcome === 'win' ? 3 : 0))),
+        coachRelationship: Math.max(0, Math.min(100, (current.player.coachRelationship ?? 60) + (outcome === 'win' ? 2 : outcome === 'loss' ? -1 : 0))),
+      },
+    };
+  });
+
+  const nextFixture = () => setSave(current => ({ ...current, week: current.week + 1, matchPlayedThisWeek: false, trainedThisWeek: false }));
+  const hireAgent = () => setSave(current => current.agentHired || current.balance < 2500 ? current : { ...current, agentHired: true, balance: current.balance - 2500 });
+
   const content = () => {
     switch (page) {
-      case 'match': return <MatchCenter home={playerClub} away={opponentClub} result={save.lastMatch} onResult={onResult} />;
+      case 'match':
+        return <MatchCenter
+          home={playerClub}
+          away={opponentClub}
+          result={save.matchPlayedThisWeek ? save.lastMatch : undefined}
+          fixtureNumber={save.playedMatches + (save.matchPlayedThisWeek ? 0 : 1)}
+          tacticalStyle={save.tacticalStyle}
+          onTacticChange={style => setSave(current => ({ ...current, tacticalStyle: style }))}
+          onResult={onResult}
+          onNextFixture={nextFixture}
+        />;
       case 'player': return <PlayerProfile player={save.player} />;
       case 'market': return <Market save={save} onHireAgent={hireAgent} />;
       case 'lifestyle': return <Lifestyle save={save} player={save.player} onFocus={focus => setSave(current => ({ ...current, trainingFocus: focus }))} onTrain={train} />;
       default: return <Dashboard save={save} player={save.player} clubName={playerClub.name} onNavigate={navigate} />;
     }
   };
+
   return <div className="min-h-screen bg-pitch-950 text-slate-100">
     {menuOpen && <button aria-label="Fechar menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-black/60 lg:hidden" />}
     <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/5 bg-pitch-900 p-5 transition-transform lg:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
