@@ -9,6 +9,9 @@ const initialSave: GameSave = {
   balance: 12_500,
   week: 1,
   trainingFocus: 'shooting',
+  tacticalStyle: 'balanced',
+  trainedThisWeek: false,
+  matchPlayedThisWeek: false,
   playedMatches: 0,
   agentHired: false,
 };
@@ -43,16 +46,15 @@ export function useGameState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
   }, [save]);
 
-  const train = () => setSave(current => ({
-    ...current,
-    player: {
-      ...current.player,
-      attributes: improveAttribute(current.player.attributes, current.trainingFocus),
-      overall: Math.min(99, current.player.overall + (current.playedMatches % 3 === 2 ? 1 : 0)),
-    },
-    week: current.week + 1,
-    balance: current.balance - 120,
-  }));
+  const train = () => setSave(current => {
+    if (current.trainedThisWeek || current.balance < 120) return current;
+    return {
+      ...current,
+      player: { ...current.player, attributes: improveAttribute(current.player.attributes, current.trainingFocus) },
+      trainedThisWeek: true,
+      balance: current.balance - 120,
+    };
+  });
 
   const reset = () => {
     localStorage.removeItem(STORAGE_KEY);
