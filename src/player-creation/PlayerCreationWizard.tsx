@@ -49,13 +49,14 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     const selected = current.secondaryPositions.includes(position) ? current.secondaryPositions.filter(item => item !== position) : current.secondaryPositions.length < 2 ? [...current.secondaryPositions, position] : current.secondaryPositions;
     return { ...current, secondaryPositions: selected };
   });
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
+  const complete = () => {
     const issue = validateCreation(input)[0];
     if (issue) { setSubmittedError(issue); return; }
     setSubmittedError('');
-    onComplete(createPlayer(input));
+    try { onComplete(createPlayer(input)); }
+    catch (reason) { setSubmittedError(reason instanceof Error ? reason.message : 'Não foi possível criar o jogador. Confirma os dados e tenta novamente.'); }
   };
+  const submit = (event: FormEvent) => { event.preventDefault(); complete(); };
   const canAdvance = step === 0
     ? !!input.name.trim() && !!input.nationality.trim() && !!input.birthCountry.trim() && !!input.birthRegion.trim() && !!input.birthCity.trim()
     : step === 1 ? input.heightCm >= 140 && input.heightCm <= 220 && input.weightKg >= 40 && input.weightKg <= 130
@@ -116,7 +117,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
           {submittedError && <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/[.07] p-3 text-sm text-red-200">{submittedError}</p>}
           <div className="mt-7 flex items-center justify-between border-t border-white/[.07] pt-5">
             <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.max(0, value - 1)); }} disabled={step === 0} className="btn-secondary"><ArrowLeft size={15} /> Anterior</button>
-            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="submit" disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
+            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="button" onClick={complete} disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
           </div>
         </form>
       </section>
