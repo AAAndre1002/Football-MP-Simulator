@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Activity, Banknote, CalendarDays, ChevronRight, CircleUserRound, LayoutDashboard, Menu, Settings, Shield, Trophy, X, ListOrdered } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Activity, Banknote, CalendarDays, ChevronRight, CircleUserRound, LayoutDashboard, Menu, Settings, Shield, Trophy, X, ListOrdered, Home } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { MatchCenter } from './components/MatchCenter';
 import { PlayerProfile } from './components/PlayerProfile';
@@ -38,8 +38,11 @@ function resultForFixture(fixture: GameSave['fixtures'][number], teams: Team[]):
 function addYears(date: string | undefined, years: number) {
   const d = date ? new Date(`${date}T12:00:00`) : new Date('2027-06-30T12:00:00'); d.setFullYear(d.getFullYear() + years); return d.toISOString().slice(0, 10);
 }
-export default function App() {
-  const { save, setSave, train, reset } = useGameState();
+interface AppProps { initialSave?: GameSave; onSaveChange?: (save: GameSave) => void; onExit?: () => void; }
+
+export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}) {
+  const { save, setSave, train, reset } = useGameState(initialSave);
+  useEffect(() => { onSaveChange?.(save); }, [save, onSaveChange]);
   const [page, setPage] = useState('dashboard'); const [menuOpen, setMenuOpen] = useState(false);
   const navigate = (id: string) => { setPage(id); setMenuOpen(false); };
   const teams = useMemo(() => buildTeams(save), [save]);
@@ -130,6 +133,6 @@ export default function App() {
       <p className="mb-2 mt-8 px-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Carreira</p><nav className="space-y-1">{navItems.map(item => { const Icon = item.icon; return <button key={item.id} onClick={() => navigate(item.id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${page === item.id ? 'bg-lime-400/10 font-medium text-lime-300' : 'text-slate-400 hover:bg-white/[0.04] hover:text-white'}`}><Icon size={17} />{item.label}{page === item.id && <ChevronRight size={15} className="ml-auto" />}</button>; })}</nav>
       <div className="mt-auto space-y-3"><div className="rounded-xl border border-lime-400/10 bg-lime-400/[0.04] p-3"><div className="flex items-center gap-2 text-xs font-semibold text-lime-300"><Shield size={14} /> PROGRESSO GUARDADO</div><p className="mt-1 text-xs text-slate-500">Neste dispositivo · automaticamente</p></div><button onClick={() => { if (window.confirm('Apagar a carreira guardada e começar de novo?')) reset(); }} className="flex items-center gap-2 px-2 text-xs text-slate-600 hover:text-slate-300"><Settings size={14} /> Reiniciar carreira</button></div>
     </aside>
-    <div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/5 bg-pitch-950/90 px-4 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3"><button aria-label="Abrir menu" className="lg:hidden" onClick={() => setMenuOpen(true)}><Menu /></button><span className="text-sm text-slate-400">Época <strong className="text-white">{save.season} · Jornada {save.week}</strong></span></div><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-400 sm:inline">€{save.balance.toLocaleString('pt-PT')}</span><div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-pitch-800 text-sm font-bold text-lime-300">AC</div></div></header><main className="mx-auto max-w-7xl p-4 sm:p-8">{content()}</main><footer className="px-8 pb-6 text-center text-xs text-slate-700">Football MP Simulator · Carreira offline guardada neste dispositivo</footer></div>
+    <div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/5 bg-pitch-950/90 px-4 backdrop-blur-md sm:px-8"><div className="flex items-center gap-3">{onExit && <button onClick={onExit} className="btn-secondary h-9 px-3 text-xs"><Home size={15} /> Menu</button>}<button aria-label="Abrir menu" className="lg:hidden" onClick={() => setMenuOpen(true)}><Menu /></button><span className="text-sm text-slate-400">Época <strong className="text-white">{save.season} · Jornada {save.week}</strong></span></div><div className="flex items-center gap-3"><span className="hidden text-sm text-slate-400 sm:inline">€{save.balance.toLocaleString('pt-PT')}</span><div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-pitch-800 text-sm font-bold text-lime-300">AC</div></div></header><main className="mx-auto max-w-7xl p-4 sm:p-8">{content()}</main><footer className="px-8 pb-6 text-center text-xs text-slate-700">Football MP Simulator · Carreira offline guardada neste dispositivo</footer></div>
   </div>;
 }
