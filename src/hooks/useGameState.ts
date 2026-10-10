@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { CareerStats, Fixture, GameSave, InjuryStatus, MatchEvent, MatchResult, Player, PlayerAttributes, PendingPress, PressHistoryEntry, RecoveryAsset, SponsorOffer, TacticalStyle, TrainingFocus, TransferOffer } from '../types';
 import { emptyLeagueTable, leagueTeams, makeFixtures, playerCharacter, playerClub } from '../data/mockTeams';
 import { tableFromFixtures, seededRandom } from '../engine/season';
-import { applyTraining, type TrainingIntensity } from '../engine/playerDevelopment';
+import { applyTraining, calculateMarketValue, recordMarketValuePoint, remainingContractYears, type TrainingIntensity } from '../engine/playerDevelopment';
+import { getCareerPathway } from '../player-creation/clubOffers';
 
 const STORAGE_KEY = 'football-mp-simulator-save-v1';
 const clamp = (n: unknown, min: number, max: number, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
@@ -21,10 +22,22 @@ function defaultCareer(player: Player): CareerStats {
 }
 function freshSave(): GameSave {
   const player: Player = { ...playerCharacter, id: 'smf-11', contract: { id: 'contract-1', playerId: 'smf-11', teamId: playerClub.id, startDate: '2026-07-01', endDate: '2027-06-30', weeklyWage: 1250, releaseClause: 1400000, goalBonus: 250, assistBonus: 125 } };
+  player.marketValue = calculateMarketValue(player, [], { appearances: 0, totalMinutes: 0, goals: 0, assists: 0, contractYearsRemaining: remainingContractYears(player) });
   return { version: 3, player, clubId: playerClub.id, balance: 12500, week: 1, season: 1, trainingFocus: 'shooting', tacticalStyle: 'balanced', trainedThisWeek: false, matchPlayedThisWeek: false, playedMatches: 0, agentHired: false, fixtures: makeFixtures(leagueTeams), leagueTable: emptyLeagueTable(leagueTeams), career: defaultCareer(player), transferOffers: [], sponsorships: [], offersGeneratedWeek: 0, sponsorOffersGeneratedWeek: 0, contractActionSeason: 0, injuries: [], pressHistory: [], recoveryAssets: [], personalTrainer: false };
 }
 
 export const createFreshSave = (): GameSave => freshSave();
+
+/** Build a separate new save around a wizard-created player; callers choose its storage slot. */
+export function createCareerSave(createdPlayer: Player): GameSave {
+  const base = freshSave();
+  const player: Player = {
+    ...createdPlayer,
+    contract: { id: `academy-contract-${createdPlayer.id}`, playerId: createdPlayer.id, teamId: playerClub.id, startDate: '2026-07-01', endDate: '2027-06-30', weeklyWage: 250, releaseClause: Math.max(100000, (createdPlayer.marketValue ?? 50000) * 4), goalBonus: 50, assistBonus: 25 },
+  };
+  player.marketValue = calculateMarketValue(player, [], { appearances: 0, totalMinutes: 0, goals: 0, assists: 0, contractYearsRemaining: remainingContractYears(player) });
+  return { ...base, player, clubId: playerClub.id, career: defaultCareer(player), transferOffers: [], sponsorships: [], injuries: [], pressHistory: [], recoveryAssets: [] };
+}
 function safeResult(value: unknown, homeTeamId: string, awayTeamId: string, id: string): MatchResult | undefined {
   if (!value || typeof value !== 'object') return;
   const raw = value as Partial<MatchResult>;
@@ -64,15 +77,23 @@ export function normalizeGameSave(value: unknown): GameSave {
   });
   const history = Array.isArray(raw.career?.matchHistory) ? raw.career!.matchHistory!.slice(-60).filter(item => item && Number.isFinite(item.rating) && typeof item.opponent === 'string').map(item => ({ week: clamp(item.week, 1, 10, 1), opponent: item.opponent.slice(0, 100), score: typeof item.score === 'string' ? item.score.slice(0, 20) : '0–0', rating: clamp(item.rating, 0, 10, 6), goals: clamp(item.goals, 0, 20, 0), assists: clamp(item.assists, 0, 20, 0), yellowCards: clamp(item.yellowCards, 0, 10, 0), redCards: clamp(item.redCards, 0, 5, 0) })) : [];
   const points = (items: unknown, fallback: number) => Array.isArray(items) ? items.slice(-30).filter((item): item is { week: number; value: number } => !!item && typeof item === 'object' && Number.isFinite((item as { value?: unknown }).value)).map(item => ({ week: clamp(item.week, 1, 10000, 1), value: clamp(item.value, 0, 999_999_999, fallback) })) : [{ week: 1, value: fallback }];
-  const career: CareerStats = { appearances: clamp(raw.career?.appearances, 0, 10000, clamp(raw.playedMatches, 0, 10000, 0)), goals: clamp(raw.career?.goals, 0, 10000, 0), assists: clamp(raw.career?.assists, 0, 10000, 0), yellowCards: clamp(raw.career?.yellowCards, 0, 10000, 0), redCards: clamp(raw.career?.redCards, 0, 10000, 0), ratingTotal: clamp(raw.career?.ratingTotal, 0, 1_000_000, 0), matchHistory: history, fatigue: clamp(raw.career?.fatigue, 0, 100, 0), marketValueHistory: points(raw.career?.marketValueHistory, player.marketValue ?? 0), overallHistory: points(raw.career?.overallHistory, player.overall) };
+  const career: CareerStats = { appearances: clamp(raw.career?.appearances, 0, 10000, clamp(raw.playedMatches, 0, 10000, 0)), goals: clamp(raw.career?.goals, 0, 10000, 0), assists: clamp(raw.career?.assists, 0, 10000, 0), yellowCards: clamp(raw.career?.yellowCards, 0, 10000, 0), redCards: clamp(raw.career?.redCards, 0, 10000, 0), ratingTotal: clamp(raw.career?.ratingTotal, 0, 1_000_000, 0), totalMinutes: clamp(raw.career?.totalMinutes, 0, 2_000_000, clamp(raw.career?.appearances, 0, 10000, 0) * 70), matchHistory: history, fatigue: clamp(raw.career?.fatigue, 0, 100, 0), marketValueHistory: points(raw.career?.marketValueHistory, player.marketValue ?? 0), overallHistory: points(raw.career?.overallHistory, player.overall) };
   const sponsors = Array.isArray(raw.sponsorships) ? raw.sponsorships.slice(0, 20).filter(s => s && typeof s.id === 'string').map(s => ({ ...s, brand: typeof s.brand === 'string' ? s.brand.slice(0, 100) : 'Marca', weeklyIncome: clamp(s.weeklyIncome, 0, 1_000_000, 0), durationWeeks: clamp(s.durationWeeks, 1, 52, 1), weeksRemaining: clamp(s.weeksRemaining, 0, 52, 0), status: ['pending','active','declined','expired'].includes(s.status) ? s.status : 'expired' })) : [];
   const offers = Array.isArray(raw.transferOffers) ? raw.transferOffers.slice(0, 20).filter(o => o && typeof o.id === 'string').map(o => ({ ...o, playerId: player.id, clubId: leagueTeams.some(t => t.id === o.clubId) ? o.clubId : playerClub.id, fee: clamp(o.fee, 0, 999_999_999, 0), joiningBonus: clamp(o.joiningBonus, 0, 999_999_999, 0), weeklyWage: clamp(o.weeklyWage, 0, 1_000_000, 0), contractYears: clamp(o.contractYears, 1, 5, 2), status: ['pending','accepted','rejected','countered'].includes(o.status) ? o.status : 'rejected' })) : [];
   const injuries: InjuryStatus[] = Array.isArray(raw.injuries) ? raw.injuries.slice(0, 10).filter(i => i && typeof i.id === 'string').map(i => ({ id: i.id.slice(0, 80), name: typeof i.name === 'string' ? i.name.slice(0, 80) : 'Lesão', severity: ['minor','moderate','serious'].includes(i.severity) ? i.severity : 'minor', weeksRemaining: clamp(i.weeksRemaining, 0, 24, 0), occurredWeek: clamp(i.occurredWeek, 1, 10000, 1) })) : [];
   const pressHistory: PressHistoryEntry[] = Array.isArray(raw.pressHistory) ? raw.pressHistory.slice(-30).filter(p => p && typeof p.opponent === 'string').map(p => ({ week: clamp(p.week, 1, 10000, 1), opponent: p.opponent.slice(0, 80), answer: ['team_first','confident','humble'].includes(p.answer) ? p.answer : 'team_first', headline: typeof p.headline === 'string' ? p.headline.slice(0, 200) : '' })) : [];
   const pendingPress: PendingPress | undefined = raw.pendingPress && typeof raw.pendingPress.opponent === 'string' ? { id: String(raw.pendingPress.id).slice(0, 100), week: clamp(raw.pendingPress.week, 1, 10000, 1), opponent: raw.pendingPress.opponent.slice(0, 80), score: String(raw.pendingPress.score).slice(0, 20), outcome: ['win','draw','loss'].includes(raw.pendingPress.outcome) ? raw.pendingPress.outcome : 'draw', rating: clamp(raw.pendingPress.rating, 0, 10, 6) } : undefined;
   const recoveryAssets = Array.isArray(raw.recoveryAssets) ? raw.recoveryAssets.filter((asset): asset is RecoveryAsset => asset === 'recoveryBoots' || asset === 'personalTrainer') : [];
+  const academyRaw = raw.academyDevelopment;
+  const academyDevelopment = academyRaw && academyRaw.completed === true && Array.isArray(academyRaw.choices) && academyRaw.choices.length === 3
+    && academyRaw.choices.every((id, index) => ['first-touch','speed-circuit','video-review','peer-captain','first-team-route','reserve-route'].includes(id) && academyRaw.choices.indexOf(id) === index)
+    && (academyRaw.route === 'first-team' || academyRaw.route === 'reserve')
+    ? { academyLabel: 'Academia Horizonte', completed: true, choices: academyRaw.choices.slice(0, 3), route: academyRaw.route, promisedMinutes: clamp(academyRaw.promisedMinutes, 0, 1000, 0) } : undefined;
   const fixtures = fixtureList;
   const lastMatch = raw.lastMatch ? safeResult(raw.lastMatch, raw.lastMatch.homeTeamId, raw.lastMatch.awayTeamId, raw.lastMatch.matchId) : undefined;
+  const pathwayRaw = raw.careerPathway;
+  const careerPathway = pathwayRaw && ['portugal', 'brazil', 'italy', 'spain'].includes(pathwayRaw.country) && typeof pathwayRaw.offerId === 'string' && getCareerPathway(pathwayRaw as GameSave['careerPathway'])
+    ? { country: pathwayRaw.country, offerId: pathwayRaw.offerId.slice(0, 80) } as GameSave['careerPathway'] : undefined;
   return { ...base, ...raw, version: 3, player, lastMatch, clubId: leagueTeams.some(t => t.id === raw.clubId) ? raw.clubId! : base.clubId,
     balance: clamp(raw.balance, 0, 999_999_999, base.balance), week: clamp(raw.week, 1, 10, 1), season: clamp(raw.season, 1, 999, 1),
     trainingFocus: allFocuses.includes(raw.trainingFocus as TrainingFocus) ? raw.trainingFocus! : base.trainingFocus,
@@ -80,7 +101,7 @@ export function normalizeGameSave(value: unknown): GameSave {
     trainedThisWeek: raw.trainedThisWeek === true, matchPlayedThisWeek: raw.matchPlayedThisWeek === true && fixtures.some(f => f.week === clamp(raw.week, 1, 10, 1) && !!f.result),
     playedMatches: clamp(raw.playedMatches, 0, 10000, 0), agentHired: raw.agentHired === true, fixtures,
     leagueTable: tableFromFixtures(leagueTeams, fixtures), career, transferOffers: offers as TransferOffer[], sponsorships: sponsors as SponsorOffer[],
-    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true };
+    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true, ...(academyDevelopment ? { academyDevelopment } : {}), ...(careerPathway ? { careerPathway } : {}) };
 }
 export function useGameState(initialSave?: GameSave, persistLocally = true) {
   const [save, setSave] = useState<GameSave>(() => {
@@ -92,9 +113,9 @@ export function useGameState(initialSave?: GameSave, persistLocally = true) {
     const cost = intensity === 'high' ? 180 : intensity === 'recovery' ? 80 : 120;
     if (current.trainedThisWeek || current.balance < cost || (current.injuries ?? []).some(injury => injury.weeksRemaining > 0)) return current;
     const result = applyTraining({ player: current.player, focus: current.trainingFocus, intensity, fatigue: current.career.fatigue, week: current.week, personalTrainer: current.personalTrainer || current.recoveryAssets?.includes('personalTrainer'), random: seededRandom(`training:${current.season}:${current.week}:${current.player.id}:${current.trainingFocus}:${intensity}`) });
-    const marketValue = current.player.marketValue ?? 0;
+    const marketValue = calculateMarketValue(result.player, current.career.matchHistory.map(entry => entry.rating), { appearances: current.career.appearances, totalMinutes: current.career.totalMinutes, goals: current.career.goals, assists: current.career.assists, contractYearsRemaining: remainingContractYears(result.player, current.season, current.week) });
     const injuryList = result.injury ? [...(current.injuries ?? []), result.injury] : current.injuries ?? [];
-    return { ...current, player: { ...result.player, marketValue }, career: { ...current.career, fatigue: result.fatigue, overallHistory: [...(current.career.overallHistory ?? []), { week: current.week, value: result.player.overall }].slice(-30) }, injuries: injuryList, trainedThisWeek: true, balance: current.balance - cost };
+    return { ...current, player: { ...result.player, marketValue }, career: { ...current.career, fatigue: result.fatigue, marketValueHistory: recordMarketValuePoint(current.career.marketValueHistory, current.week, marketValue), overallHistory: [...(current.career.overallHistory ?? []), { week: current.week, value: result.player.overall }].slice(-30) }, injuries: injuryList, trainedThisWeek: true, balance: current.balance - cost };
   });
   const reset = () => { try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } setSave(freshSave()); };
   return { save, setSave, train, reset };

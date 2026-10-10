@@ -73,7 +73,8 @@ export function useCareerSaves(userId?: string) {
     if (!cleanName) throw new Error('O nome da carreira não pode ficar vazio.');
     const { error: renameError } = await supabase.from('career_saves').update({ name: cleanName, updated_at: new Date().toISOString() }).eq('id', id).eq('user_id', userId);
     if (renameError) throw renameError;
-    setSaves(current => current.map(slot => slot.id === id ? { ...slot, name: cleanName } : slot));
+    const updatedAt = new Date().toISOString();
+    setSaves(current => current.map(slot => slot.id === id ? { ...slot, name: cleanName, updatedAt } : slot));
   }, [userId]);
 
   const remove = useCallback(async (id: string) => {
