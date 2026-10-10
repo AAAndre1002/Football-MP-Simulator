@@ -46,8 +46,8 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     const selected = current.secondaryPositions.includes(position) ? current.secondaryPositions.filter(item => item !== position) : current.secondaryPositions.length < 2 ? [...current.secondaryPositions, position] : current.secondaryPositions;
     return { ...current, secondaryPositions: selected };
   });
-  const completeCreation = () => {
-    const issue = submitPlayerCreation(input, onComplete);
+  const completeCreation = () => { console.info('[creator] handler');
+    const issue = submitPlayerCreation(input, created => { console.info('[creator] callback'); onComplete(created); });
     if (issue) { setSubmittedError(issue); return; }
     setSubmittedError('');
   };
