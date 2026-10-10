@@ -15,6 +15,7 @@ import { checkMatchInjury, calculateMarketValue, recordMarketValuePoint, remaini
 import { generateTransferOffers, counterOffer, contractFromOffer } from './engine/transferMarket';
 import { answerPressConference, pressChoices, pressHeadline } from './engine/pressConference';
 import { academyEntryPlayerSlot } from './engine/academyDevelopment';
+import { developPotential } from './engine/potentialDevelopment';
 import type { GameSave, MatchResult, Player, SponsorOffer, Team, PressAnswer } from './types';
 
 const navItems = [
@@ -82,7 +83,7 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     const playedMinutes = heroStats?.minutes ?? 0;
     const rating = playedMinutes ? heroStats?.rating ?? clamp(6 + (outcome === 'win' ? .5 : outcome === 'loss' ? -.45 : 0) + heroGoals * 1.1 + heroAssists * .65 - yellowCards * .45 - redCards * 2, 3, 10) : 6;
     const opponentName = teams.find(t => t.id === (safeResult.homeTeamId === currentSave.clubId ? safeResult.awayTeamId : safeResult.homeTeamId))?.name ?? 'Adversário';
-    const matchHistory = playedMinutes ? [...currentSave.career.matchHistory, { week: currentSave.week, opponent: opponentName, score: `${ownGoals}–${opponentGoals}`, rating: Math.round(rating * 10) / 10, goals: heroGoals, assists: heroAssists, yellowCards, redCards }].slice(-60) : currentSave.career.matchHistory;
+    const matchHistory = playedMinutes ? [...currentSave.career.matchHistory, { week: currentSave.week, opponent: opponentName, score: `${ownGoals}–${opponentGoals}`, rating: Math.round(rating * 10) / 10, minutes: playedMinutes, goals: heroGoals, assists: heroAssists, yellowCards, redCards }].slice(-60) : currentSave.career.matchHistory;
     const moraleChange = outcome === 'win' ? 5 : outcome === 'draw' ? 1 : -4;
     const player = { ...currentSave.player, morale: clamp((currentSave.player.morale ?? 60) + moraleChange + (heroGoals ? 2 : 0) - (redCards ? 12 : 0), 0, 100), coachRelationship: clamp((currentSave.player.coachRelationship ?? 60) + (rating >= 7 ? 4 : rating < 5.5 ? -5 : outcome === 'loss' ? -2 : 1), 0, 100), fanRelationship: clamp((currentSave.player.fanRelationship ?? 60) + heroGoals * 5 + heroAssists * 3 + (outcome === 'win' ? 2 : outcome === 'loss' ? -2 : 0), 0, 100), mediaReputation: clamp((currentSave.player.mediaReputation ?? 55) + (rating >= 8 ? 5 : rating < 5 ? -4 : 1), 0, 100) };
     const fatigue = safeResult.playerFatigue[currentSave.player.id] ?? currentSave.career.fatigue;
@@ -107,8 +108,21 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     const balance = currentSave.balance + sponsorPay + wage - (trainerActive ? trainerCost : 0);
     const fatigue = recoverFatigue(currentSave.career.fatigue, currentSave.recoveryAssets ?? [], trainerActive && currentSave.personalTrainer);
     const injuries = recoverInjuries(currentSave.injuries ?? []);
-    const career = { ...currentSave.career, fatigue };
-    const common = { ...currentSave, balance, sponsorships, injuries, personalTrainer: trainerActive && currentSave.personalTrainer, career, matchPlayedThisWeek: false, trainedThisWeek: false };
+    const potentialResult = developPotential({
+      currentPotential: currentSave.player.potential ?? currentSave.player.overall,
+      overall: currentSave.player.overall,
+      age: currentSave.player.age,
+      momentum: currentSave.player.potentialMomentum ?? 0,
+      trainedThisWeek: currentSave.trainedThisWeek,
+      recentMatches: currentSave.career.matchHistory.slice(-4).map(match => ({ rating: match.rating, minutes: match.minutes })),
+      morale: currentSave.player.morale,
+      coachRelationship: currentSave.player.coachRelationship,
+    });
+    const player = { ...currentSave.player, potential: potentialResult.potential, initialPotential: currentSave.player.initialPotential ?? currentSave.player.potential ?? currentSave.player.overall, potentialMomentum: potentialResult.momentum, potentialTrend: potentialResult.change };
+    const marketValue = calculateMarketValue(player, currentSave.career.matchHistory.map(entry => entry.rating), { appearances: currentSave.career.appearances, totalMinutes: currentSave.career.totalMinutes, goals: currentSave.career.goals, assists: currentSave.career.assists, contractYearsRemaining: remainingContractYears(player, currentSave.season, currentSave.week) });
+    const marketValueHistory = recordMarketValuePoint(currentSave.career.marketValueHistory, currentSave.week, marketValue);
+    const career = { ...currentSave.career, fatigue, marketValueHistory };
+    const common = { ...currentSave, player: { ...player, marketValue }, balance, sponsorships, injuries, personalTrainer: trainerActive && currentSave.personalTrainer, career, matchPlayedThisWeek: false, trainedThisWeek: false };
     const nextWeek = nextSeasonWeek(currentSave.week, currentSave.season);
     if (nextWeek.newSeason) return { ...common, ...nextWeek, fixtures: makeFixtures(leagueTeams, nextWeek.season), leagueTable: tableFromFixtures(leagueTeams, []), offersGeneratedWeek: 0, sponsorOffersGeneratedWeek: 0, lastMatch: currentSave.lastMatch };
     return { ...common, ...nextWeek };
