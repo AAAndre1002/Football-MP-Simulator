@@ -10,9 +10,10 @@ import { useGameState } from './hooks/useGameState';
 import { leagueTeams, makeFixtures } from './data/mockTeams';
 import { seededRandom, settleRound, tableFromFixtures } from './engine/season';
 import { simulateMatch } from './engine/matchEngine';
-import { checkMatchInjury, calculateMarketValue, recoverFatigue, recoverInjuries } from './engine/playerDevelopment';
+import { checkMatchInjury, calculateMarketValue, recordMarketValuePoint, remainingContractYears, recoverFatigue, recoverInjuries } from './engine/playerDevelopment';
 import { generateTransferOffers, counterOffer, contractFromOffer } from './engine/transferMarket';
 import { answerPressConference, pressChoices, pressHeadline } from './engine/pressConference';
+import { academyEntryPlayerSlot } from './engine/academyDevelopment';
 import type { GameSave, MatchResult, Player, SponsorOffer, Team, PressAnswer } from './types';
 
 const navItems = [
@@ -24,7 +25,7 @@ const clamp = (value: number, min: number, max: number) => Number.isFinite(value
 function buildTeams(save: GameSave): Team[] {
   return leagueTeams.map(team => {
     if (team.id !== save.clubId) return team;
-    const slot = team.players.find(p => p.position === save.player.position && team.startingXI.includes(p.id)) ?? team.players[10];
+    const slot = academyEntryPlayerSlot(team, save.player.position, save.academyDevelopment?.route) ?? team.players[10];
     const replacement: Player = { ...save.player, contract: save.player.contract ? { ...save.player.contract, teamId: save.clubId } : undefined };
     const players = team.players.map(p => p.id === slot.id ? replacement : p);
     const startingXI = team.startingXI.map(id => id === slot.id ? replacement.id : id);
@@ -88,11 +89,11 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     const injuries = matchInjury ? [...(currentSave.injuries ?? []), matchInjury] : currentSave.injuries ?? [];
     const wageBonuses = heroGoals * (player.contract?.goalBonus ?? 0) + heroAssists * (player.contract?.assistBonus ?? 0);
     const matchBonus = outcome === 'win' ? 350 : outcome === 'draw' ? 150 : 0;
-    const career = { ...currentSave.career, appearances: currentSave.career.appearances + (playedMinutes ? 1 : 0), goals: currentSave.career.goals + heroGoals, assists: currentSave.career.assists + heroAssists, yellowCards: currentSave.career.yellowCards + yellowCards, redCards: currentSave.career.redCards + redCards, ratingTotal: currentSave.career.ratingTotal + (playedMinutes ? rating : 0), matchHistory, fatigue };
-    const marketValue = calculateMarketValue(player, matchHistory.map(entry => entry.rating));
+    const career = { ...currentSave.career, appearances: currentSave.career.appearances + (playedMinutes ? 1 : 0), totalMinutes: (currentSave.career.totalMinutes ?? currentSave.career.appearances * 70) + playedMinutes, goals: currentSave.career.goals + heroGoals, assists: currentSave.career.assists + heroAssists, yellowCards: currentSave.career.yellowCards + yellowCards, redCards: currentSave.career.redCards + redCards, ratingTotal: currentSave.career.ratingTotal + (playedMinutes ? rating : 0), matchHistory, fatigue };
+    const marketValue = calculateMarketValue(player, matchHistory.map(entry => entry.rating), { appearances: career.appearances, totalMinutes: career.totalMinutes, goals: career.goals, assists: career.assists, contractYearsRemaining: remainingContractYears(player, currentSave.season, currentSave.week) });
     const pendingPress = { id: `press-${safeResult.matchId}`, week: currentSave.week, opponent: opponentName, score: `${ownGoals}–${opponentGoals}`, outcome, rating } as const;
     const marketPlayer = { ...player, marketValue };
-    const marketHistory = [...(currentSave.career.marketValueHistory ?? []), { week: currentSave.week, value: marketValue }].slice(-30);
+    const marketHistory = recordMarketValuePoint(currentSave.career.marketValueHistory, currentSave.week, marketValue);
     return { ...currentSave, fixtures, leagueTable: tableFromFixtures(matchTeams, fixtures), player: marketPlayer, career: { ...career, marketValueHistory: marketHistory }, injuries, pendingPress, lastMatch: safeResult, matchPlayedThisWeek: true, playedMatches: currentSave.playedMatches + (playedMinutes ? 1 : 0), balance: currentSave.balance + matchBonus + wageBonuses };
   });
   const advance = () => setSave(currentSave => {
@@ -124,13 +125,18 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     if (!s.matchPlayedThisWeek || !leagueTeams.some(t => t.id === offer.clubId)) return s;
     const contract = contractFromOffer(offer, s.player, s.season);
     const club = leagueTeams.find(t => t.id === offer.clubId)!;
-    return { ...s, clubId: club.id, player: { ...s.player, contract, morale: clamp((s.player.morale ?? 60) + 8, 0, 100), coachRelationship: 60, marketValue: Math.max(s.player.marketValue ?? 0, offer.fee) }, balance: s.balance + offer.joiningBonus, transferOffers: s.transferOffers.map(o => o.id === id ? { ...o, status: 'accepted' } : o) };
+    const transferredPlayer = { ...s.player, contract, morale: clamp((s.player.morale ?? 60) + 8, 0, 100), coachRelationship: 60 };
+    const marketValue = calculateMarketValue(transferredPlayer, s.career.matchHistory.map(entry => entry.rating), { appearances: s.career.appearances, totalMinutes: s.career.totalMinutes, goals: s.career.goals, assists: s.career.assists, contractYearsRemaining: remainingContractYears(transferredPlayer, s.season, s.week) });
+    return { ...s, clubId: club.id, player: { ...transferredPlayer, marketValue }, career: { ...s.career, marketValueHistory: recordMarketValuePoint(s.career.marketValueHistory, s.week, marketValue) }, balance: s.balance + offer.joiningBonus, transferOffers: s.transferOffers.map(o => o.id === id ? { ...o, status: 'accepted' } : o) };
   });
   const answerPress = (answer: PressAnswer) => setSave(s => {
     const pending = s.pendingPress; if (!pending) return s;
-    const player = answerPressConference(s.player, pending, answer);
-    const headline = pressHeadline(answer, pending.outcome, player.name);
-    return { ...s, player, pendingPress: undefined, pressHistory: [...(s.pressHistory ?? []), { week: pending.week, opponent: pending.opponent, answer, headline }].slice(-30) };
+    const answeredPlayer = answerPressConference(s.player, pending, answer);
+    const headline = pressHeadline(answer, pending.outcome, answeredPlayer.name);
+    const marketValue = calculateMarketValue(answeredPlayer, s.career.matchHistory.map(entry => entry.rating), { appearances: s.career.appearances, totalMinutes: s.career.totalMinutes, goals: s.career.goals, assists: s.career.assists, contractYearsRemaining: remainingContractYears(answeredPlayer, s.season, pending.week) });
+    const player = { ...answeredPlayer, marketValue };
+    const marketValueHistory = recordMarketValuePoint(s.career.marketValueHistory, pending.week, marketValue);
+    return { ...s, player, career: { ...s.career, marketValueHistory }, pendingPress: undefined, pressHistory: [...(s.pressHistory ?? []), { week: pending.week, opponent: pending.opponent, answer, headline }].slice(-30) };
   });
   const buyRecoveryBoots = () => setSave(s => s.matchPlayedThisWeek || (s.recoveryAssets ?? []).includes('recoveryBoots') || s.balance < 2400 ? s : { ...s, balance: s.balance - 2400, recoveryAssets: [...(s.recoveryAssets ?? []), 'recoveryBoots'] });
   const hireTrainer = () => setSave(s => s.matchPlayedThisWeek || s.personalTrainer || s.balance < 1200 ? s : { ...s, balance: s.balance - 1200, personalTrainer: true });
@@ -152,12 +158,15 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
   });
   const renegotiate = () => setSave(s => {
     const contract = s.player.contract; if (!contract || s.contractActionSeason === s.season || s.matchPlayedThisWeek || !currentFixture(s) || s.balance < 0) return s;
-    const bonus = Math.round(contract.weeklyWage * 2); return { ...s, balance: s.balance + bonus, contractActionSeason: s.season, player: { ...s.player, contract: { ...contract, weeklyWage: Math.round(contract.weeklyWage * 1.12), endDate: addYears(contract.endDate, 1), signingBonus: bonus } } };
+    const bonus = Math.round(contract.weeklyWage * 2);
+    const player = { ...s.player, contract: { ...contract, weeklyWage: Math.round(contract.weeklyWage * 1.12), endDate: addYears(contract.endDate, 1), signingBonus: bonus } };
+    const marketValue = calculateMarketValue(player, s.career.matchHistory.map(entry => entry.rating), { appearances: s.career.appearances, totalMinutes: s.career.totalMinutes, goals: s.career.goals, assists: s.career.assists, contractYearsRemaining: remainingContractYears(player, s.season, s.week) });
+    return { ...s, balance: s.balance + bonus, contractActionSeason: s.season, player: { ...player, marketValue }, career: { ...s.career, marketValueHistory: recordMarketValuePoint(s.career.marketValueHistory, s.week, marketValue) } };
   });
   const content = () => {
     if (page === 'match' && current) return <MatchCenter home={current.home} away={current.away} result={currentResult} fixtureNumber={save.week} clubId={save.clubId} playerId={save.player.id} initialFatigue={save.career.fatigue} tacticalStyle={save.tacticalStyle} onTacticChange={style => setSave(s => s.matchPlayedThisWeek ? s : { ...s, tacticalStyle: style })} onResult={onResult} onNextFixture={advance} />;
     if (page === 'season') return <SeasonCenter fixtures={save.fixtures} table={save.leagueTable} teams={teams} clubId={save.clubId} week={save.week} season={save.season} onPlay={() => navigate('match')} />;
-    if (page === 'player') return <PlayerProfile player={save.player} career={save.career} />;
+    if (page === 'player') return <PlayerProfile player={save.player} career={save.career} academyDevelopment={save.academyDevelopment} careerPathway={save.careerPathway} season={save.season} week={save.week} />;
     if (page === 'market') return <Market save={save} onHireAgent={hireAgent} onGenerateOffers={generateOffers} onOfferAction={respondOffer} onSponsorOffers={generateSponsorOffers} onSponsorDecision={respondSponsor} onClauseChange={updateClause} onRenegotiate={renegotiate} />;
     if (page === 'lifestyle') return <Lifestyle save={save} player={save.player} onFocus={focus => setSave(s => s.trainedThisWeek ? s : { ...s, trainingFocus: focus })} onTrain={train} onBuyRecovery={buyRecoveryBoots} onHireTrainer={hireTrainer} />;
     return <Dashboard save={save} player={save.player} clubName={club.name} onNavigate={navigate} nextOpponent={opponent.name} onAdvance={advance} />;
