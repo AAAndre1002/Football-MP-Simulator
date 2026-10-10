@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, BadgeCheck, CircleUserRound, Cloud, Eye, EyeOff, Gamepad2, KeyRound, LogOut, Mail, Plus, ShieldCheck, Trash2, Trophy } from 'lucide-react';
 import type { CareerSaveSlot } from '../hooks/useCareerSaves';
+import { submitNewPassword } from '../lib/passwordRecovery';
 
 interface OpeningMenuProps {
   authConfigured: boolean;
@@ -13,6 +14,10 @@ interface OpeningMenuProps {
   onSignIn: (email: string, password: string) => Promise<string>;
   onSignUp: (name: string, email: string, password: string) => Promise<string>;
   onResetPassword: (email: string) => Promise<string>;
+  passwordRecoveryRequired: boolean;
+  passwordRecoverySuccess: boolean;
+  onUpdatePassword: (password: string) => Promise<string>;
+  onDismissPasswordRecoverySuccess: () => void;
   onSignOut: () => Promise<void>;
   onOpenSlot: (slot: CareerSaveSlot) => void;
   onCreateSlot: (name: string) => Promise<void>;
@@ -29,6 +34,8 @@ export function OpeningMenu(props: OpeningMenuProps) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryConfirmation, setRecoveryConfirmation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -50,6 +57,20 @@ export function OpeningMenu(props: OpeningMenuProps) {
     } catch (reason) { setError(friendlyError(reason)); }
     finally { setBusy(false); }
   };
+  const submitPasswordRecovery = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setMessage('');
+    setError('');
+    setBusy(true);
+    try {
+      const result = await submitNewPassword(recoveryPassword, recoveryConfirmation, props.onUpdatePassword);
+      setRecoveryPassword('');
+      setRecoveryConfirmation('');
+      setMessage(result);
+    } catch (reason) { setError(friendlyError(reason)); }
+    finally { setBusy(false); }
+  };
+
   const createSave = async () => {
     setBusy(true); setError('');
     try { await props.onCreateSlot(newSaveName); }
@@ -81,7 +102,25 @@ export function OpeningMenu(props: OpeningMenuProps) {
         </section>
 
         <section className="opening-card">
-          {!props.userEmail ? (
+          {props.passwordRecoveryRequired ? (
+            <>
+              <div className="mb-5 flex items-center justify-between gap-3"><div><p className="opening-eyebrow small"><span /> RECUPERAÇÃO DE CONTA</p><h2 className="mt-2 text-xl font-bold tracking-tight">Escolhe uma nova palavra-passe</h2></div><div className="opening-card-icon"><KeyRound size={19} /></div></div>
+              <form onSubmit={submitPasswordRecovery} className="space-y-3.5">
+                <label className="field-label">NOVA PALAVRA-PASSE<input type="password" autoComplete="new-password" value={recoveryPassword} onChange={e => setRecoveryPassword(e.target.value)} className="field-input" placeholder="Pelo menos 8 caracteres" minLength={8} required /></label>
+                <label className="field-label">CONFIRMAR PALAVRA-PASSE<input type="password" autoComplete="new-password" value={recoveryConfirmation} onChange={e => setRecoveryConfirmation(e.target.value)} className="field-input" placeholder="Escreve novamente" minLength={8} required /></label>
+                <p className="text-xs text-neutral-400">A nova palavra-passe será usada para entrar na tua conta e aceder às carreiras guardadas.</p>
+                {error && <p role="alert" className="rounded-lg border border-red-400/20 bg-red-400/[.07] p-3 text-sm text-red-200">{error}</p>}
+                <button disabled={busy || props.authLoading} className="opening-cta w-full">{busy ? 'A ATUALIZAR…' : 'ATUALIZAR PALAVRA-PASSE'} <ArrowRight size={16} /></button>
+              </form>
+            </>
+          ) : props.passwordRecoverySuccess ? (
+            <div className="py-3 text-center">
+              <div className="opening-card-icon mx-auto"><BadgeCheck size={20} /></div>
+              <h2 className="mt-4 text-xl font-bold">Palavra-passe atualizada</h2>
+              <p role="status" className="mt-2 text-sm leading-6 text-neutral-300">A palavra-passe foi alterada com sucesso. Já podes continuar para a tua conta e carreiras guardadas.</p>
+              <button type="button" onClick={props.onDismissPasswordRecoverySuccess} className="opening-cta mt-5 w-full">CONTINUAR <ArrowRight size={16} /></button>
+            </div>
+          ) : !props.userEmail ? (
             <>
               <div className="mb-5 flex items-center justify-between gap-3"><div><p className="opening-eyebrow small"><span /> {authMode ? 'ACESSO AO JOGO' : 'COMEÇA AQUI'}</p><h2 className="mt-2 text-xl font-bold tracking-tight">{authMode === 'register' ? 'Criar conta' : authMode === 'reset' ? 'Recuperar acesso' : authMode === 'signin' ? 'Iniciar sessão' : 'Escolhe como jogar'}</h2></div><div className="opening-card-icon"><BadgeCheck size={19} /></div></div>
               {!authMode ? (
