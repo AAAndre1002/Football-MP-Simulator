@@ -120,7 +120,7 @@ function toPlayerAttributes(values: AttributeProfile): PlayerAttributes {
     ...(values.gkReflexes > 15 || values.gkHandling > 15 || values.gkPositioning > 15 ? { goalkeeping: { reflexes: values.gkReflexes, handling: values.gkHandling, positioning: values.gkPositioning } } : {}),
   };
 }
-export function createPlayer(input: PlayerCreationInput, id = `player-${typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function' ? globalThis.crypto.randomUUID() : Date.now() ?? Date.now()}`): CreatedPlayer {
+export function createPlayer(input: PlayerCreationInput, id = `player-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`): CreatedPlayer {
   const errors = validateCreation(input);
   if (errors.length) throw new Error(errors.join(' '));
   const selected = rolesForPosition(input.primaryPosition).find(item => item.id === input.roleId)!;
@@ -129,18 +129,10 @@ export function createPlayer(input: PlayerCreationInput, id = `player-${typeof g
     season: CAREER_SEASON,
     player: {
       id, name: input.name.trim(), age: STARTING_AGE, nationality: input.nationality.trim(), position: input.primaryPosition,
-      overall, potential: calculatePotential(overall, input.roleId, input.primaryPosition), role: selected.label,
+      overall, potential: calculatePotential(overall, input.roleId, input.primaryPosition), initialPotential: calculatePotential(overall, input.roleId, input.primaryPosition), potentialMomentum: 0, potentialTrend: 0, role: selected.label,
       secondaryPositions: [...input.secondaryPositions], appearance: { ...input.appearance }, heightCm: input.heightCm, weightKg: input.weightKg,
       preferredFoot: input.preferredFoot, birthCountry: input.birthCountry.trim(), birthRegion: input.birthRegion.trim(), birthCity: input.birthCity.trim(),
       attributes: toPlayerAttributes(input.attributes), marketValue: 50000, morale: 65, coachRelationship: 60, fanRelationship: 50,
     },
   };
-}
-
-/** Validate and hand a committed creator result to the next flow stage. Returns a user-facing validation error, or null on success. */
-export function submitPlayerCreation(input: PlayerCreationInput, onComplete: (created: CreatedPlayer) => void): string | null {
-  const issue = validateCreation(input)[0];
-  if (issue) return issue;
-  onComplete(createPlayer(input));
-  return null;
 }
