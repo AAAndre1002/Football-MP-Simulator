@@ -6,7 +6,7 @@ import { createPlayer, DEFAULT_CREATION } from '../player-creation/playerCreatio
 import type { Player } from '../types';
 import { applyAcademyChoice } from '../engine/academyDevelopment';
 
-const createdPlayer = createPlayer({ ...DEFAULT_CREATION, name: 'Test Player', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Feira' }, 'offline-slot-player').player;
+const createdPlayer = createPlayer({ ...DEFAULT_CREATION, name: 'Test Player', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Santa Maria da Feira' }, 'offline-slot-player').player;
 
 describe('offline career slots and save compatibility', () => {
   it('adds a new slot without modifying the pre-existing legacy save', () => {
@@ -39,7 +39,7 @@ describe('offline career slots and save compatibility', () => {
   });
 
   it('preserves the created player appearance when an offline save is normalized and reloaded', () => {
-    const player = createPlayer({ ...DEFAULT_CREATION, name: 'QA Avatar', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Feira', appearance: { hairStyle: 'Caracóis', hairColor: 'Ruivo', eyeColor: 'Verdes' } }, 'qa-avatar').player;
+    const player = createPlayer({ ...DEFAULT_CREATION, name: 'QA Avatar', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Santa Maria da Feira', appearance: { hairStyle: 'Caracóis', hairColor: 'Ruivo', eyeColor: 'Verdes' } }, 'qa-avatar').player;
     const createdSave = createCareerSave(player);
     const loaded = normalizeGameSave(JSON.parse(JSON.stringify(createdSave)));
     expect(loaded.player.id).toBe('qa-avatar');
