@@ -41,7 +41,7 @@ function addYears(date: string | undefined, years: number) {
 interface AppProps { initialSave?: GameSave; onSaveChange?: (save: GameSave) => void; onExit?: () => void; }
 
 export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}) {
-  const { save, setSave, train, reset } = useGameState(initialSave);
+  const { save, setSave, train, reset } = useGameState(initialSave, !onSaveChange);
   useEffect(() => { onSaveChange?.(save); }, [save, onSaveChange]);
   const [page, setPage] = useState('dashboard'); const [menuOpen, setMenuOpen] = useState(false);
   const navigate = (id: string) => { setPage(id); setMenuOpen(false); };
