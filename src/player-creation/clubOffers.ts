@@ -11,7 +11,7 @@ const SOURCE_CHECKED_AT = '2026-10-10';
 // offer scenarios are gameplay approximations, not real club offers or current sporting data.
 const options: Record<FootballCountry, OfferSeed[]> = {
   portugal: [
-    { competition: 'Liga Portugal 2 Meu Super', clubName: 'Portimonense', level: 62, role: 'Extremo de rotação', promisedMinutes: 720, sourceSeason: '2026/27', sourceUrl: 'https://www.portimonensesad.pt/calendario-definido-liga-portugal-2-meu-super-26-27-ja-tem-datas-oficiais_25755', sourceLabel: 'Portimonense SAD · notícia da época 2026/27' },
+    { competition: 'Liga Portugal 2 Meu Super', clubName: 'Portimonense', level: 62, role: 'Extremo de rotação', promisedMinutes: 720, sourceSeason: '2026/27', sourceUrl: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_Liga_Portugal_2', sourceLabel: 'Lista pública secundária de participantes 2026/27' },
     { competition: 'Liga Portugal 2 Meu Super', clubName: 'Feirense', level: 60, role: 'Médio de desenvolvimento', promisedMinutes: 1080, sourceSeason: '2026/27', sourceUrl: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_Liga_Portugal_2', sourceLabel: 'Lista pública de participantes 2026/27' },
     { competition: 'Liga Portugal 2 Meu Super', clubName: 'Amarante', level: 58, role: 'Projeto de titularidade', promisedMinutes: 450, sourceSeason: '2026/27', sourceUrl: 'https://en.wikipedia.org/wiki/2026%E2%80%9327_Liga_Portugal_2', sourceLabel: 'Lista pública de participantes 2026/27' },
   ],
