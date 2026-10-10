@@ -80,12 +80,12 @@ function improveAttribute(attributes: PlayerAttributes, focus: TrainingFocus): P
   if (physicalFocus.includes(focus as keyof PlayerAttributes['physical'])) { const key = focus as keyof PlayerAttributes['physical']; return { ...attributes, physical: { ...attributes.physical, [key]: Math.min(99, attributes.physical[key] + 1) } }; }
   const key = focus as keyof PlayerAttributes['mental']; return { ...attributes, mental: { ...attributes.mental, [key]: Math.min(99, attributes.mental[key] + 1) } };
 }
-export function useGameState(initialSave?: GameSave) {
+export function useGameState(initialSave?: GameSave, persistLocally = true) {
   const [save, setSave] = useState<GameSave>(() => {
     if (initialSave) return normalizeGameSave(initialSave);
     try { const stored = localStorage.getItem(STORAGE_KEY); return stored ? normalizeGameSave(JSON.parse(stored)) : freshSave(); } catch { return freshSave(); }
   });
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(save)); } catch { /* private browsing may deny storage */ } }, [save]);
+  useEffect(() => { if (!persistLocally) return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(save)); } catch { /* private browsing may deny storage */ } }, [save, persistLocally]);
   const train = () => setSave(current => {
     if (current.trainedThisWeek || current.balance < 120) return current;
     const attributes = improveAttribute(current.player.attributes, current.trainingFocus);
