@@ -20,6 +20,8 @@ function freshSave(): GameSave {
   const player: Player = { ...playerCharacter, id: 'smf-11', contract: { id: 'contract-1', playerId: 'smf-11', teamId: playerClub.id, startDate: '2026-07-01', endDate: '2027-06-30', weeklyWage: 1250, releaseClause: 1400000 } };
   return { version: 2, player, clubId: playerClub.id, balance: 12500, week: 1, season: 1, trainingFocus: 'shooting', tacticalStyle: 'balanced', trainedThisWeek: false, matchPlayedThisWeek: false, playedMatches: 0, agentHired: false, fixtures: makeFixtures(leagueTeams), leagueTable: emptyLeagueTable(leagueTeams), career: defaultCareer(), transferOffers: [], sponsorships: [], offersGeneratedWeek: 0, sponsorOffersGeneratedWeek: 0, contractActionSeason: 0 };
 }
+
+export const createFreshSave = (): GameSave => freshSave();
 function safeResult(value: unknown, homeTeamId: string, awayTeamId: string, id: string): MatchResult | undefined {
   if (!value || typeof value !== 'object') return;
   const raw = value as Partial<MatchResult>;
@@ -37,7 +39,7 @@ function safeResult(value: unknown, homeTeamId: string, awayTeamId: string, id: 
   return { matchId: id, homeTeamId, awayTeamId, homeScore: clamp(raw.homeScore, 0, 20, 0), awayScore: clamp(raw.awayScore, 0, 20, 0), events,
     stats: { [homeTeamId]: stat(homeTeamId), [awayTeamId]: stat(awayTeamId) }, playerFatigue: Object.fromEntries(Object.entries(raw.playerFatigue ?? {}).slice(0, 40).map(([key, n]) => [key.slice(0, 100), clamp(n, 0, 100, 0)])) };
 }
-function normalizeSave(value: unknown): GameSave {
+export function normalizeGameSave(value: unknown): GameSave {
   const base = freshSave();
   if (!value || typeof value !== 'object') return base;
   const raw = value as Partial<GameSave> & { player?: Partial<Player>; career?: Partial<CareerStats> };
@@ -78,9 +80,10 @@ function improveAttribute(attributes: PlayerAttributes, focus: TrainingFocus): P
   if (physicalFocus.includes(focus as keyof PlayerAttributes['physical'])) { const key = focus as keyof PlayerAttributes['physical']; return { ...attributes, physical: { ...attributes.physical, [key]: Math.min(99, attributes.physical[key] + 1) } }; }
   const key = focus as keyof PlayerAttributes['mental']; return { ...attributes, mental: { ...attributes.mental, [key]: Math.min(99, attributes.mental[key] + 1) } };
 }
-export function useGameState() {
+export function useGameState(initialSave?: GameSave) {
   const [save, setSave] = useState<GameSave>(() => {
-    try { const stored = localStorage.getItem(STORAGE_KEY); return stored ? normalizeSave(JSON.parse(stored)) : freshSave(); } catch { return freshSave(); }
+    if (initialSave) return normalizeGameSave(initialSave);
+    try { const stored = localStorage.getItem(STORAGE_KEY); return stored ? normalizeGameSave(JSON.parse(stored)) : freshSave(); } catch { return freshSave(); }
   });
   useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(save)); } catch { /* private browsing may deny storage */ } }, [save]);
   const train = () => setSave(current => {
