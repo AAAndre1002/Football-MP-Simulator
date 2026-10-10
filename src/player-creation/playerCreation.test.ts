@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_FLAT_ATTRIBUTES, CAREER_SEASON, DEFAULT_CREATION, POSITION_DEFINITIONS, STARTING_AGE,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, profileForRole,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isPortugueseMunicipalityValid, profileForRole,
   rolesForPosition, validateCreation, type PlayerCreationInput,
 } from './playerCreation';
+import { COUNTRY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
 
 function validInput(overrides: Partial<PlayerCreationInput> = {}): PlayerCreationInput {
   return {
     ...DEFAULT_CREATION,
-    name: 'Jogador Teste', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Feira',
+    name: 'Jogador Teste', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Santa Maria da Feira',
     ...overrides,
     appearance: { ...DEFAULT_CREATION.appearance, ...overrides.appearance },
     attributes: { ...DEFAULT_CREATION.attributes, ...overrides.attributes },
@@ -77,6 +78,29 @@ describe('attribute profiles, bounds and derived ratings', () => {
   });
 });
 
+describe('validated nationality and birthplace catalogues', () => {
+  it('offers ISO-coded country choices and the official Portuguese municipality set', () => {
+    expect(COUNTRY_OPTIONS.length).toBeGreaterThan(250);
+    expect(new Set(COUNTRY_OPTIONS.map(country => country.code)).size).toBe(COUNTRY_OPTIONS.length);
+    expect(PORTUGAL_REGIONS.reduce((total, region) => total + region.municipalities.length, 0)).toBe(308);
+    expect(isPortugueseMunicipalityValid('Aveiro', 'Santa Maria da Feira')).toBe(true);
+    expect(isPortugueseMunicipalityValid('Porto', 'Santa Maria da Feira')).toBe(false);
+  });
+  it('rejects arbitrary nationality, district and municipality text', () => {
+    expect(validateCreation(validInput({ nationality: 'País Inventado' })).some(error => error.includes('nacionalidade'))).toBe(true);
+    expect(validateCreation(validInput({ birthCity: 'Cidade Inventada' })).some(error => error.includes('concelho'))).toBe(true);
+    expect(validateCreation(validInput({ birthRegion: 'Distrito Inventado' })).some(error => error.includes('concelho'))).toBe(true);
+  });
+  it('keeps a foreign birthplace accurate without inventing unverified local divisions', () => {
+    const player = createPlayer(validInput({ nationality: 'Brasil', birthCountry: 'França', birthRegion: '', birthCity: '' }), 'foreign-born');
+    expect(player.player.nationality).toBe('Brasil');
+    expect(player.player.birthCountry).toBe('França');
+    expect(player.player.birthRegion).toBe('');
+    expect(player.player.birthCity).toBe('');
+    expect(validateCreation(validInput({ birthCountry: 'França', birthRegion: 'Paris', birthCity: 'Paris' })).some(error => error.includes('dados validados'))).toBe(true);
+  });
+});
+
 describe('new career defaults', () => {
   it('generates a player ID when the caller does not provide one', () => {
     const created = createPlayer(validInput());
@@ -92,7 +116,7 @@ describe('new career defaults', () => {
     expect(created.player.potentialMomentum).toBe(0);
   });
   it('keeps appearance, physical details, dominant foot and birthplace on the created player', () => {
-    const created = createPlayer(validInput({ preferredFoot: 'ambidextrous', heightCm: 188, weightKg: 83, birthCity: 'Porto' }), 'created');
+    const created = createPlayer(validInput({ preferredFoot: 'ambidextrous', heightCm: 188, weightKg: 83, birthRegion: 'Porto', birthCity: 'Porto' }), 'created');
     expect(created.player.preferredFoot).toBe('ambidextrous');
     expect(created.player.heightCm).toBe(188);
     expect(created.player.weightKg).toBe(83);

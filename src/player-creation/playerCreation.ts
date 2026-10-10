@@ -1,4 +1,5 @@
 import type { Player, PlayerAttributes, PlayerPosition } from '../types';
+import { COUNTRY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
 
 export const CAREER_SEASON = '2026/27';
 export const STARTING_AGE = 16;
@@ -96,10 +97,19 @@ export function calculatePotential(overall: number, roleId: string, position: Pl
   return Math.min(100, Math.max(overall, overall + 10 + selected.potentialBonus));
 }
 export const clampAttribute = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+export function isCountryNameValid(name: string): boolean { return COUNTRY_OPTIONS.some(country => country.name === name); }
+export function isPortugueseMunicipalityValid(regionName: string, municipality: string): boolean {
+  return PORTUGAL_REGIONS.some(region => region.name === regionName && region.municipalities.includes(municipality));
+}
 export function validateCreation(input: PlayerCreationInput): string[] {
   const errors: string[] = [];
   if (!input.name.trim() || input.name.trim().length > 60) errors.push('Indica um nome com 1 a 60 caracteres.');
-  if (!input.nationality.trim() || !input.birthCountry.trim() || !input.birthRegion.trim() || !input.birthCity.trim()) errors.push('Preenche nacionalidade e local de nascimento (país, região e cidade).');
+  if (!isCountryNameValid(input.nationality)) errors.push('Escolhe uma nacionalidade da lista de países disponível.');
+  const birthCountry = COUNTRY_OPTIONS.find(country => country.name === input.birthCountry);
+  if (!birthCountry) errors.push('Escolhe o país de nascimento da lista disponível.');
+  else if (birthCountry.code === 'PT') {
+    if (!isPortugueseMunicipalityValid(input.birthRegion, input.birthCity)) errors.push('Seleciona um distrito/região e um concelho válidos da lista.');
+  } else if (input.birthRegion.trim() || input.birthCity.trim()) errors.push('Para este país, não introduzas uma região ou cidade sem dados validados.');
   if (!HAIR_STYLES.includes(input.appearance.hairStyle as typeof HAIR_STYLES[number]) || !HAIR_COLORS.includes(input.appearance.hairColor as typeof HAIR_COLORS[number]) || !EYE_COLORS.includes(input.appearance.eyeColor as typeof EYE_COLORS[number])) errors.push('Escolhe uma aparência disponível.');
   if (!Number.isInteger(input.heightCm) || input.heightCm < 140 || input.heightCm > 220) errors.push('A altura tem de estar entre 140 e 220 cm.');
   if (!Number.isInteger(input.weightKg) || input.weightKg < 40 || input.weightKg > 130) errors.push('O peso tem de estar entre 40 e 130 kg.');
