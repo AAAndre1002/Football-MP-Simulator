@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, Shield, UserRound, SlidersHorizontal, Sparkles } from 'lucide-react';
 import {
   CAREER_SEASON, DEFAULT_CREATION, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, POSITIONS,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, profileForRole, rolesForPosition, validateCreation,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, profileForRole, rolesForPosition, submitPlayerCreation, validateCreation,
   type CreatedPlayer, type FlatAttribute, type PlayerCreationInput,
 } from './playerCreation';
 
@@ -72,7 +72,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
             <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide sm:gap-2 sm:text-[10px]">{index < step ? <Check size={14} className="text-yellow-300" /> : <item.icon size={14} className={index === step ? 'text-yellow-300' : 'text-neutral-500'} />}<span className={index === step ? 'text-yellow-100' : 'text-neutral-500'}>{item.title}</span></div>
           </div>)}
         </div>
-        <form className="opening-card" onSubmit={submit}>
+        <form className="opening-card" onSubmit={submit} noValidate>
           <div className="mb-6"><p className="opening-eyebrow small"><span /> PASSO {step + 1} DE {steps.length}</p><h2 className="mt-2 text-xl font-bold">{steps[step].title}</h2><p className="mt-1 text-sm text-neutral-400">{steps[step].hint}</p></div>
           {step === 0 && <div className="grid gap-4 sm:grid-cols-2">
             <label className="field-label sm:col-span-2">NOME DO JOGADOR<input autoFocus className="field-input" maxLength={60} value={input.name} onChange={event => setField('name', event.target.value)} placeholder="Ex.: Alex Silva" /></label>
@@ -108,7 +108,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
           {submittedError && <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/[.07] p-3 text-sm text-red-200">{submittedError}</p>}
           <div className="mt-7 flex items-center justify-between border-t border-white/[.07] pt-5">
             <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.max(0, value - 1)); }} disabled={step === 0} className="btn-secondary"><ArrowLeft size={15} /> Anterior</button>
-            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="submit" disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
+            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="button" onClick={completeCreation} disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
           </div>
         </form>
       </section>
