@@ -132,7 +132,7 @@ export function OpeningMenu(props: OpeningMenuProps) {
         </div>
       </header>
 
-<div className={`relative z-10 mx-auto ${!props.userEmail && !authMode && !props.passwordRecoveryRequired && !props.passwordRecoverySuccess ? 'max-w-5xl' : 'max-w-2xl'} px-5 pb-12 pt-10 sm:px-8 sm:pt-14">
+<div className={`relative z-10 mx-auto ${!props.userEmail && !authMode && !props.passwordRecoveryRequired && !props.passwordRecoverySuccess ? 'max-w-5xl' : 'max-w-2xl'} px-5 pb-12 pt-10 sm:px-8 sm:pt-14`}>
         <section className="mb-7">
           <p className="opening-eyebrow"><span /> O TEU PRÓXIMO CAPÍTULO</p>
           <h1 className="opening-title">A TUA HISTÓRIA.<br /><span>O TEU JOGO.</span></h1>
