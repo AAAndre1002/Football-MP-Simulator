@@ -24,7 +24,11 @@ function loadOfflineSaves(): OfflineCareerSlot[] {
       .map(item => ({ id: item.id.slice(0, 100), name: item.name.slice(0, 40), saveData: normalizeGameSave(item.saveData), updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date(0).toISOString() }));
   } catch { return []; }
 }
-function newId() { return `offline-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`; }
+function newId() {
+  const cryptoApi = globalThis.crypto;
+  const id = cryptoApi && typeof cryptoApi.randomUUID === 'function' ? cryptoApi.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `offline-${id}`;
+}
 
 export default function AppRoot() {
   const auth = useAuth();
