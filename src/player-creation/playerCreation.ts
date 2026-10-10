@@ -96,6 +96,14 @@ export function calculatePotential(overall: number, roleId: string, position: Pl
   if (!selected || !Number.isInteger(overall) || overall < 0 || overall > 100) throw new Error('Não foi possível calcular o potencial.');
   return Math.min(100, Math.max(overall, overall + 10 + selected.potentialBonus));
 }
+export function rollPotential(overall: number, roleId: string, position: PlayerPosition, random: () => number = Math.random): number {
+  const selected = rolesForPosition(position).find(item => item.id === roleId);
+  if (!selected || !Number.isInteger(overall) || overall < 0 || overall > 100) throw new Error('Não foi possível lançar o potencial.');
+  const result = random();
+  if (!Number.isFinite(result) || result < 0 || result >= 1) throw new Error('O resultado do dado tem de estar entre 0 e 1.');
+  const randomGap = 5 + Math.floor(result * 11);
+  return Math.min(100, Math.max(overall, overall + randomGap + selected.potentialBonus));
+}
 export const clampAttribute = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 export function isNationalityValid(name: string): boolean { return NATIONALITY_OPTIONS.some(country => country.name === name); }
 export function isPortugueseMunicipalityValid(regionName: string, municipality: string): boolean {
@@ -135,16 +143,18 @@ function createPlayerId(): string {
   if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return `player-${cryptoApi.randomUUID()}`;
   return `player-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
-export function createPlayer(input: PlayerCreationInput, id = createPlayerId()): CreatedPlayer {
+export function createPlayer(input: PlayerCreationInput, id = createPlayerId(), startingPotential?: number): CreatedPlayer {
   const errors = validateCreation(input);
   if (errors.length) throw new Error(errors.join(' '));
   const selected = rolesForPosition(input.primaryPosition).find(item => item.id === input.roleId)!;
   const overall = calculateOverall(input.attributes, input.primaryPosition, input.roleId);
+  const initialPotential = startingPotential ?? rollPotential(overall, input.roleId, input.primaryPosition);
+  if (!Number.isInteger(initialPotential) || initialPotential < overall || initialPotential > 100) throw new Error('O potencial inicial sorteado tem de ficar entre o OVR e 100.');
   return {
     season: CAREER_SEASON,
     player: {
       id, name: input.name.trim(), age: STARTING_AGE, nationality: input.nationality.trim(), position: input.primaryPosition,
-      overall, potential: calculatePotential(overall, input.roleId, input.primaryPosition), initialPotential: calculatePotential(overall, input.roleId, input.primaryPosition), potentialMomentum: 0, potentialTrend: 0, role: selected.label,
+      overall, potential: initialPotential, initialPotential, potentialMomentum: 0, potentialTrend: 0, role: selected.label,
       secondaryPositions: [...input.secondaryPositions], appearance: { ...input.appearance }, heightCm: input.heightCm, weightKg: input.weightKg,
       preferredFoot: input.preferredFoot, birthCountry: input.birthCountry.trim(), birthRegion: input.birthRegion.trim(), birthCity: input.birthCity.trim(),
       attributes: toPlayerAttributes(input.attributes), marketValue: 50000, morale: 65, coachRelationship: 60, fanRelationship: 50,

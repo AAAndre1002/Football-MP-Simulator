@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_FLAT_ATTRIBUTES, CAREER_SEASON, DEFAULT_CREATION, POSITION_DEFINITIONS, STARTING_AGE,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isPortugueseMunicipalityValid, profileForRole,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isPortugueseMunicipalityValid, profileForRole, rollPotential,
   rolesForPosition, validateCreation, type PlayerCreationInput,
 } from './playerCreation';
 import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
@@ -65,6 +65,12 @@ describe('attribute profiles, bounds and derived ratings', () => {
     expect(calculatePotential(overall, 'box-to-box', 'CM')).toBe(74);
     expect(calculatePotential(97, 'false-nine', 'ST')).toBe(100);
   });
+  it('rolls starting potential as a bounded random dice result, never below OVR', () => {
+    expect(rollPotential(64, 'box-to-box', 'CM', () => 0)).toBe(69);
+    expect(rollPotential(64, 'box-to-box', 'CM', () => 0.999999)).toBe(79);
+    expect(rollPotential(99, 'box-to-box', 'CM', () => 0.999999)).toBe(100);
+    expect(() => rollPotential(64, 'box-to-box', 'CM', () => 1)).toThrow();
+  });
   it('rejects non-integer and out-of-range attribute values rather than silently accepting them', () => {
     const invalid = validInput({ attributes: { ...DEFAULT_CREATION.attributes, pace: 101 } });
     expect(validateCreation(invalid)).toContain('Todos os atributos têm de ser números inteiros entre 0 e 100.');
@@ -117,6 +123,15 @@ describe('new career defaults', () => {
     expect(created.player.potential).toBeGreaterThanOrEqual(created.player.overall);
     expect(created.player.initialPotential).toBe(created.player.potential);
     expect(created.player.potentialMomentum).toBe(0);
+  });
+  it('stores the dice result as the immutable initial potential and rejects invalid values', () => {
+    const input = validInput();
+    const overall = calculateOverall(input.attributes, input.primaryPosition, input.roleId);
+    const created = createPlayer(input, 'rolled-potential', overall + 7);
+    expect(created.player.potential).toBe(overall + 7);
+    expect(created.player.initialPotential).toBe(overall + 7);
+    expect(() => createPlayer(input, 'below-overall', overall - 1)).toThrow();
+    expect(() => createPlayer(input, 'above-cap', 101)).toThrow();
   });
   it('keeps appearance, physical details, dominant foot and birthplace on the created player', () => {
     const created = createPlayer(validInput({ preferredFoot: 'ambidextrous', heightCm: 188, weightKg: 83, birthRegion: 'Porto', birthCity: 'Porto' }), 'created');
