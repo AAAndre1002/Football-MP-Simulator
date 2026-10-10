@@ -14,6 +14,9 @@ export interface Contract {
 }
 export interface Player {
   id: string; name: string; age: number; nationality: string; position: PlayerPosition; overall: AttributeScore; attributes: PlayerAttributes;
+  /** Optional Phase 1 creator metadata; absent on legacy saves by design. */
+  potential?: AttributeScore; role?: string; secondaryPositions?: PlayerPosition[]; appearance?: { hairStyle: string; hairColor: string; eyeColor: string };
+  heightCm?: number; weightKg?: number; preferredFoot?: 'right' | 'left' | 'ambidextrous'; birthCountry?: string; birthRegion?: string; birthCity?: string;
   contract?: Contract; marketValue?: number; morale?: number; coachRelationship?: number; fanRelationship?: number; mediaReputation?: number;
 }
 export type TacticalStyle = 'balanced' | 'possession' | 'counterAttack' | 'highPress';
@@ -41,6 +44,8 @@ export interface ValuePoint { week: number; value: number; }
 export interface MatchHistoryEntry { week: number; opponent: string; score: string; rating: number; goals: number; assists: number; yellowCards: number; redCards: number; }
 export interface CareerStats {
   appearances: number; goals: number; assists: number; yellowCards: number; redCards: number; ratingTotal: number;
+  /** Cumulative minutes played; optional for backward compatibility with older saves. */
+  totalMinutes?: number;
   matchHistory: MatchHistoryEntry[]; fatigue: number; marketValueHistory?: ValuePoint[]; overallHistory?: ValuePoint[];
 }
 export interface TransferOffer { id: string; playerId: string; clubId: string; fee: number; joiningBonus: number; weeklyWage: number; contractYears: number; status: 'pending' | 'accepted' | 'rejected' | 'countered'; }
@@ -59,4 +64,8 @@ export interface GameSave {
   fixtures: Fixture[]; leagueTable: LeagueRow[]; career: CareerStats; transferOffers: TransferOffer[]; sponsorships: SponsorOffer[];
   offersGeneratedWeek: number; sponsorOffersGeneratedWeek: number; season: number; contractActionSeason: number;
   injuries?: InjuryStatus[]; pendingPress?: PendingPress; pressHistory?: PressHistoryEntry[]; recoveryAssets?: RecoveryAsset[]; personalTrainer?: boolean;
+  /** Optional completed original-fiction academy chapter; absent on legacy saves. */
+  academyDevelopment?: { academyLabel: string; completed: boolean; choices: string[]; route: 'first-team' | 'reserve'; promisedMinutes: number };
+  /** Optional, explicitly fictional nationality-based pathway choice; not a real club contract. */
+  careerPathway?: { country: 'portugal' | 'brazil' | 'italy' | 'spain'; offerId: string };
 }
