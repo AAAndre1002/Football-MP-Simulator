@@ -1,33 +1,44 @@
 # Football MP Simulator
 
-Simulador de carreira de futebol offline, em Português (Portugal), desenvolvido com React 18, TypeScript, Vite, Tailwind CSS e PWA. A carreira é guardada automaticamente no armazenamento local do navegador.
+Simulador de carreira de futebol em Português (Portugal), desenvolvido com React, TypeScript, Vite, Tailwind CSS e PWA.
 
-## Funcionalidades do MVP
+## O que está incluído
 
-- Liga portuguesa fictícia com seis clubes, calendário de 10 jornadas e jogos em casa/fora.
-- Simulação de toda a jornada, classificação calculada por pontos, diferença e golos; os resultados não se repetem após recarregar.
-- Centro de jogo com abordagens táticas que alteram o motor de simulação, relato, posse, remates e cartões.
-- Perfil com jogos, golos, assistências, avaliações, cartões, fadiga e histórico por partida.
-- Treino semanal pago, com limites de atributo e controlo de saldo.
-- Salário contratual semanal, renovação/renegociação limitada a uma vez por época e cláusula de rescisão ajustável.
-- Propostas de transferência geradas por jornada, contra-proposta, aceitar/recusar e agente com efeito em probabilidade, salário e bónus.
-- Patrocínios com rendimento semanal, duração e limite de contratos ativos.
-- Moral, relação com treinador/adeptos e reputação nos media reagem ao desempenho e influenciam o motor.
-- Migração/clamp de dados de carreiras anteriores e persistência local; o jogo funciona sem backend.
+- Menu inicial de carreira com acesso ao jogo offline.
+- Ecrãs de iniciar sessão, criar conta e recuperar palavra-passe, ligados a Supabase Auth quando configurado.
+- Até cinco slots de carreira online por conta, com carregamento, criação, remoção e gravação automática.
+- Saves privados por utilizador através de Row Level Security (RLS).
+- Modo offline continua disponível e guarda a carreira neste navegador.
+- Liga fictícia, calendário, classificação, partidas, táticas, perfil, treino, mercado, contratos, finanças e patrocínios.
 
-Equipas, jogadores, clubes, valores e ofertas são dados fictícios de demonstração. O MVP não inclui contas online, sincronização entre dispositivos, mercado de jogadores completo, lesões ou competições de taça.
-
-## Requisitos e execução
+## Requisitos
 
 - Node.js 20 ou superior
 - npm
 
+## Desenvolvimento local
+
 ```bash
-npm ci
+npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-## Validação
+## Ativar login e saves na nuvem
+
+1. Cria um projeto no [Supabase](https://supabase.com/dashboard).
+2. No SQL Editor do projeto, executa `supabase/migrations/20261010060000_career_saves.sql`.
+3. Copia a Project URL e a publishable key do projeto para `.env.local`:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+4. Em Authentication → URL Configuration, adiciona o endereço local e o domínio da aplicação às URLs autorizadas de redirect.
+5. Para o deploy, define as mesmas duas variáveis no ambiente de produção do Vercel e volta a publicar.
+
+**Nunca coloques a `service_role` key no frontend nem no repositório.** A tabela usa RLS e só permite a cada utilizador ler ou alterar os próprios saves.
+
+Sem estas variáveis, o ecrã de autenticação mostra que o backend ainda não está ligado e o jogo pode ser iniciado em modo offline.
+
+## Testes e build
 
 ```bash
 npm test
@@ -35,4 +46,4 @@ npm run build
 npm run preview
 ```
 
-O GitHub Actions executa os testes do motor de época e a compilação TypeScript/Vite em pushes e pull requests para `main`.
+O GitHub Actions executa os testes e a compilação TypeScript/Vite em pushes e pull requests para `main`.
