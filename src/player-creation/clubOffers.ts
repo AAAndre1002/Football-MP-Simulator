@@ -37,7 +37,7 @@ export function countryRouteForNationality(nationality: string): FootballCountry
   if (['portugal', 'portugues', 'portuguesa', 'portuguese'].includes(value)) return 'portugal';
   if (['brasil', 'brasileiro', 'brasileira', 'brazil', 'brazilian'].includes(value)) return 'brazil';
   if (['italia', 'italiano', 'italiana', 'italian'].includes(value)) return 'italy';
-  if (['espanha', 'espana', 'espanhol', 'espanhola', 'spanish'].includes(value)) return 'spain';
+  if (['espanha', 'espana', 'espanhol', 'espanhola', 'espanol', 'espanola', 'spanish'].includes(value)) return 'spain';
   return null;
 }
 
