@@ -81,7 +81,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
         <form className="opening-card" onSubmit={submit}>
           <div className="mb-6"><p className="opening-eyebrow small"><span /> PASSO {step + 1} DE {steps.length}</p><h2 className="mt-2 text-xl font-bold">{steps[step].title}</h2><p className="mt-1 text-sm text-neutral-400">{steps[step].hint}</p></div>
           {step === 0 && <div className="grid gap-4 sm:grid-cols-2">
-            <label className="field-label sm:col-span-2">NOME DO JOGADOR<input autoFocus className="field-input" maxLength={60} value={input.name} onChange={event => setField('name', event.target.value)} placeholder="Ex.: Alex Silva" /></label>
+            <label className="field-label sm:col-span-2">NOME DO TEU JOGADOR<input autoFocus required aria-label="Nome do teu jogador" className="field-input player-name-input" maxLength={60} value={input.name} onChange={event => { setSubmittedError(''); setField('name', event.target.value); }} placeholder="Escreve o nome do teu jogador" /></label>
             <label className="field-label">NACIONALIDADE<input className="field-input" maxLength={60} value={input.nationality} onChange={event => setField('nationality', event.target.value)} placeholder="Ex.: Portugal" /></label>
             <label className="field-label">PAÍS DE NASCIMENTO<input className="field-input" maxLength={60} value={input.birthCountry} onChange={event => setField('birthCountry', event.target.value)} placeholder="Ex.: Portugal" /></label>
             <label className="field-label">REGIÃO / DISTRITO<input className="field-input" maxLength={80} value={input.birthRegion} onChange={event => setField('birthRegion', event.target.value)} placeholder="Ex.: Aveiro" /></label>
