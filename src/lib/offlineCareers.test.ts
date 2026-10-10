@@ -38,6 +38,14 @@ describe('offline career slots and save compatibility', () => {
     expect(renameOfflineCareerSlot(slots, 'b', '  ')).toEqual(slots);
   });
 
+  it('preserves the created player appearance when an offline save is normalized and reloaded', () => {
+    const player = createPlayer({ ...DEFAULT_CREATION, name: 'QA Avatar', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Feira', appearance: { hairStyle: 'Caracóis', hairColor: 'Ruivo', eyeColor: 'Verdes' } }, 'qa-avatar').player;
+    const createdSave = createCareerSave(player);
+    const loaded = normalizeGameSave(JSON.parse(JSON.stringify(createdSave)));
+    expect(loaded.player.id).toBe('qa-avatar');
+    expect(loaded.player.appearance).toEqual({ hairStyle: 'Caracóis', hairColor: 'Ruivo', eyeColor: 'Verdes' });
+  });
+
   it('keeps completed academy choices when normalized and accepts a legacy v1-style save', () => {
     let player: Player = createdPlayer;
     let choices: string[] = [];
