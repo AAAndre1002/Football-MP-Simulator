@@ -17,6 +17,13 @@ describe('week-by-week progression gate', () => {
     expect(canAdvanceWeek({ ...readyForWeekEnd, trainedThisWeek: false, injuries: [{ weeksRemaining: 2 }] })).toBe(true);
     expect(canAdvanceWeek({ ...readyForWeekEnd, trainedThisWeek: false, balance: 79 })).toBe(true);
   });
+  it('clears the training block after the post-match session and exposes a valid advance action', () => {
+    const afterMatchAndPress = { ...readyForWeekEnd, trainedThisWeek: false, pendingPress: undefined };
+    expect(weekProgressionBlock(afterMatchAndPress)).toBe('training');
+    const afterTraining = { ...afterMatchAndPress, trainedThisWeek: true };
+    expect(weekProgressionBlock(afterTraining)).toBe(null);
+    expect(canAdvanceWeek(afterTraining)).toBe(true);
+  });
   it('allows advancement only when all available week actions are resolved', () => {
     expect(canAdvanceWeek(readyForWeekEnd)).toBe(true);
     expect(canAdvanceWeek({ ...readyForWeekEnd, pendingPress: { week: 1 } })).toBe(false);

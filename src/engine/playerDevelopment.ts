@@ -32,7 +32,7 @@ function improve(attributes: PlayerAttributes, focus: TrainingFocus, gain: numbe
 /** Applies one training session using explicit randomness, so saves and tests are reproducible. */
 export function applyTraining(input: TrainingInput): TrainingResult {
   const { player, focus, random } = input;
-  const intensityMultiplier = input.intensity === 'high' ? 1.45 : input.intensity === 'recovery' ? 0.5 : 1;
+  const intensityMultiplier = input.intensity === 'high' ? 1.55 : input.intensity === 'recovery' ? 0.5 : 1;
   const ageMultiplier = player.age <= 21 ? 1.18 : player.age <= 27 ? 1 : player.age <= 31 ? 0.78 : 0.58;
   const trainerMultiplier = input.personalTrainer ? 1.2 : 1;
   const currentValue = focus in player.attributes.technical
@@ -41,7 +41,7 @@ export function applyTraining(input: TrainingInput): TrainingResult {
       ? player.attributes.physical[focus as keyof PlayerAttributes['physical']]
       : player.attributes.mental[focus as keyof PlayerAttributes['mental']];
   const potentialFactor = clamp((102 - currentValue) / 42, 0.08, 1);
-  const baseGain = (0.24 + random() * 0.48) * intensityMultiplier * ageMultiplier * trainerMultiplier * potentialFactor;
+  const baseGain = (0.4 + random() * 0.6) * intensityMultiplier * ageMultiplier * trainerMultiplier * potentialFactor;
   const attributeGain = Math.round(baseGain * 10) / 10;
   const fatigueCost = input.intensity === 'high' ? 19 : input.intensity === 'recovery' ? 4 : 10;
   const fatigue = clamp(input.fatigue + fatigueCost - (input.personalTrainer ? 3 : 0), 0, 100);
