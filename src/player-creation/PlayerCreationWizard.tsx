@@ -46,12 +46,14 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     const selected = current.secondaryPositions.includes(position) ? current.secondaryPositions.filter(item => item !== position) : current.secondaryPositions.length < 2 ? [...current.secondaryPositions, position] : current.secondaryPositions;
     return { ...current, secondaryPositions: selected };
   });
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const issue = validateCreation(input)[0];
+  const completeCreation = () => {
+    const issue = submitPlayerCreation(input, onComplete);
     if (issue) { setSubmittedError(issue); return; }
     setSubmittedError('');
-    onComplete(createPlayer(input));
+  };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    completeCreation();
   };
   const canAdvance = step === 0
     ? !!input.name.trim() && !!input.nationality.trim() && !!input.birthCountry.trim() && !!input.birthRegion.trim() && !!input.birthCity.trim()
