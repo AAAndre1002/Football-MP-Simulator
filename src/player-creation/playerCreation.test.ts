@@ -78,6 +78,10 @@ describe('attribute profiles, bounds and derived ratings', () => {
 });
 
 describe('new career defaults', () => {
+  it('generates a player ID when the caller does not provide one', () => {
+    const created = createPlayer(validInput());
+    expect(created.player.id).toMatch(/^player-/);
+  });
   it('always creates the player at 16 in the 2026/27 season', () => {
     const created = createPlayer(validInput(), 'test-player');
     expect(created.player.age).toBe(STARTING_AGE);

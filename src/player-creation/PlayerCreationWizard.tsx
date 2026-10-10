@@ -54,10 +54,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     if (issue) { setSubmittedError(issue); return; }
     setSubmittedError('');
     try { onComplete(createPlayer(input)); }
-    catch (reason) {
-      console.error('Falha ao concluir a criação do jogador:', reason);
-      setSubmittedError(reason instanceof Error ? (reason.stack ?? reason.message) : 'Não foi possível criar o jogador. Confirma os dados e tenta novamente.');
-    }
+    catch (reason) { setSubmittedError(reason instanceof Error ? reason.message : 'Não foi possível criar o jogador. Confirma os dados e tenta novamente.'); }
   };
   const submit = (event: FormEvent) => { event.preventDefault(); complete(); };
   const canAdvance = step === 0
