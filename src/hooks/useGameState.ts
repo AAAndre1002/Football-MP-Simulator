@@ -101,7 +101,7 @@ export function normalizeGameSave(value: unknown): GameSave {
     trainedThisWeek: raw.trainedThisWeek === true, matchPlayedThisWeek: raw.matchPlayedThisWeek === true && fixtures.some(f => f.week === clamp(raw.week, 1, 10, 1) && !!f.result),
     playedMatches: clamp(raw.playedMatches, 0, 10000, 0), agentHired: raw.agentHired === true, fixtures,
     leagueTable: tableFromFixtures(leagueTeams, fixtures), career, transferOffers: offers as TransferOffer[], sponsorships: sponsors as SponsorOffer[],
-    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true, ...(academyDevelopment ? { academyDevelopment } : {}), ...(careerPathway ? { careerPathway } : {}) };
+    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true, academyDevelopment, careerPathway };
 }
 export function useGameState(initialSave?: GameSave, persistLocally = true) {
   const [save, setSave] = useState<GameSave>(() => {
