@@ -58,6 +58,9 @@ export interface CareerStats {
 export interface TransferOffer { id: string; playerId: string; clubId: string; fee: number; joiningBonus: number; weeklyWage: number; contractYears: number; status: 'pending' | 'accepted' | 'rejected' | 'countered'; }
 export interface SponsorOffer { id: string; brand: string; weeklyIncome: number; durationWeeks: number; status: 'pending' | 'active' | 'declined' | 'expired'; weeksRemaining: number; }
 export type TrainingFocus = keyof PlayerAttributes['technical'] | keyof PlayerAttributes['physical'] | keyof PlayerAttributes['mental'];
+export interface TrainingSummary {
+  week: number; focus: TrainingFocus; intensity: 'recovery' | 'balanced' | 'high'; previousValue: number; currentValue: number; attributeGain: number; fatigueChange: number; injuryName?: string;
+}
 export type InjurySeverity = 'minor' | 'moderate' | 'serious';
 export interface InjuryStatus { id: string; name: string; severity: InjurySeverity; weeksRemaining: number; occurredWeek: number; }
 export type PressAnswer = 'team_first' | 'confident' | 'humble';
@@ -70,7 +73,7 @@ export interface GameSave {
   trainedThisWeek: boolean; matchPlayedThisWeek: boolean; lastMatch?: MatchResult; playedMatches: number; agentHired: boolean;
   fixtures: Fixture[]; leagueTable: LeagueRow[]; career: CareerStats; transferOffers: TransferOffer[]; sponsorships: SponsorOffer[];
   offersGeneratedWeek: number; sponsorOffersGeneratedWeek: number; season: number; contractActionSeason: number;
-  injuries?: InjuryStatus[]; pendingPress?: PendingPress; pressHistory?: PressHistoryEntry[]; recoveryAssets?: RecoveryAsset[]; personalTrainer?: boolean;
+  injuries?: InjuryStatus[]; pendingPress?: PendingPress; pressHistory?: PressHistoryEntry[]; recoveryAssets?: RecoveryAsset[]; personalTrainer?: boolean; lastTraining?: TrainingSummary;
   /** Optional completed original-fiction academy chapter; absent on legacy saves. */
   academyDevelopment?: { academyLabel: string; completed: boolean; choices: string[]; route: 'first-team' | 'reserve'; promisedMinutes: number };
   /** Optional, explicitly fictional nationality-based pathway choice; not a real club contract. */
