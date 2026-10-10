@@ -216,8 +216,6 @@ export default function AppRoot() {
     return <CareerPathwayPicker player={createdPlayer} onComplete={pathway => { void finishCareer(pathway); }} onSkip={() => { void finishCareer(); }} saveError={academyError} />;
   }
 
-  const userName = typeof auth.user?.user_metadata?.display_name === 'string' ? auth.user.user_metadata.display_name : undefined;
-
   return <OpeningMenu
     offlineSaves={offlineSaves}
     onOpenOfflineSave={openOfflineSave}
@@ -229,7 +227,6 @@ export default function AppRoot() {
     onImportCloudSave={importCloudSave}
     authConfigured={auth.configured}
     authLoading={auth.loading}
-    userName={userName}
     userEmail={auth.user?.email}
     slots={cloud.saves}
     slotsLoading={cloud.loading}
