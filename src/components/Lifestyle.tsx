@@ -1,120 +1,24 @@
-import { Check, Dumbbell, HeartPulse } from 'lucide-react';
+import { Check, Dumbbell, HeartPulse, Footprints, UserRound, Zap } from 'lucide-react';
 import type { GameSave, Player } from '../types';
-
+import type { TrainingIntensity } from '../engine/playerDevelopment';
 const focuses = [
-  { key: 'shooting', name: 'Finalização', group: 'Técnica' },
-  { key: 'passing', name: 'Passe', group: 'Técnica' },
-  { key: 'dribbling', name: 'Drible', group: 'Técnica' },
-  { key: 'stamina', name: 'Resistência', group: 'Físico' },
-  { key: 'pace', name: 'Velocidade', group: 'Físico' },
-  { key: 'decisions', name: 'Decisão', group: 'Mental' },
+  { key: 'shooting', name: 'Finalização', group: 'Técnica' }, { key: 'passing', name: 'Passe', group: 'Técnica' }, { key: 'dribbling', name: 'Drible', group: 'Técnica' },
+  { key: 'vision', name: 'Visão de jogo', group: 'Técnica' }, { key: 'stamina', name: 'Resistência', group: 'Físico' }, { key: 'pace', name: 'Velocidade', group: 'Físico' },
+  { key: 'strength', name: 'Força', group: 'Físico' }, { key: 'decisions', name: 'Decisão', group: 'Mental' }, { key: 'composure', name: 'Sangue-frio', group: 'Mental' },
 ] as const;
-
-export function Lifestyle({
-  save,
-  player,
-  onFocus,
-  onTrain,
-}: {
-  save: GameSave;
-  player: Player;
-  onFocus: (focus: GameSave['trainingFocus']) => void;
-  onTrain: () => void;
-}) {
-  const selectedFocus = focuses.find(item => item.key === save.trainingFocus)?.name ?? 'Finalização';
-  const relationships = [
-    ['Treinador', player.coachRelationship ?? 0],
-    ['Adeptos', player.fanRelationship ?? 0],
-    ['Moral', player.morale ?? 0],
-    ['Comunicação social', player.mediaReputation ?? 55],
-  ] as const;
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <p className="text-sm text-lime-400">Rotina de atleta</p>
-        <h1 className="mt-1 text-3xl font-bold">Estilo de vida</h1>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="panel p-5">
-          <div className="flex items-center gap-3">
-            <Dumbbell className="text-lime-300" />
-            <div>
-              <h2 className="font-semibold">Plano de treino semanal</h2>
-              <p className="text-sm text-slate-500">Semana {save.week} · escolhe um atributo para desenvolver</p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            {focuses.map(item => (
-              <button
-                key={item.key}
-                onClick={() => onFocus(item.key)}
-                className={`flex items-center justify-between rounded-xl border p-3 text-left transition ${save.trainingFocus === item.key ? 'border-lime-400/50 bg-lime-400/10' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}
-              >
-                <span>
-                  <span className="block text-sm font-medium">{item.name}</span>
-                  <span className="text-xs text-slate-500">{item.group}</span>
-                </span>
-                {save.trainingFocus === item.key && <Check size={17} className="text-lime-300" />}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-4">
-            <p className="text-sm text-slate-400">
-              Sessão: <strong className="text-white">{selectedFocus}</strong> · Custo €120
-            </p>
-            <button
-              className="btn-primary"
-              disabled={save.trainedThisWeek || save.balance < 120}
-              onClick={onTrain}
-            >
-              {save.trainedThisWeek ? 'Treino concluído esta semana' : 'Treinar esta semana'}
-            </button>
-          </div>
-        </section>
-
-        <section className="panel p-5">
-          <div className="flex items-center gap-3">
-            <HeartPulse className="text-pink-300" />
-            <h2 className="font-semibold">Bem-estar e relações</h2>
-          </div>
-          <p className="mt-4 text-sm text-slate-400">
-            A tua relação com o treinador e os adeptos influencia a carreira. Mantém boas exibições e cumpre o plano.
-          </p>
-          {relationships.map(([label, value]) => (
-            <div key={label} className="mt-5">
-              <div className="mb-2 flex justify-between text-sm">
-                <span className="text-slate-400">{label}</span>
-                <span>{value}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-white/5">
-                <div className="h-full rounded-full bg-lime-400" style={{ width: `${value}%` }} />
-              </div>
-            </div>
-          ))}
-        </section>
-      </div>
-
-      <section className="panel p-5">
-        <h2 className="font-semibold">Finanças pessoais</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-white/[0.03] p-4">
-            <p className="text-xs text-slate-500">Saldo atual</p>
-            <p className="mt-1 text-xl font-bold">€{save.balance.toLocaleString('pt-PT')}</p>
-          </div>
-          <div className="rounded-xl bg-white/[0.03] p-4">
-            <p className="text-xs text-slate-500">Salário semanal</p>
-            <p className="mt-1 text-xl font-bold">€{(player.contract?.weeklyWage ?? 0).toLocaleString('pt-PT')}</p>
-          </div>
-          <div className="rounded-xl bg-white/[0.03] p-4">
-            <p className="text-xs text-slate-500">Patrocínios ativos</p>
-            <p className="mt-1 text-xl font-bold">{save.sponsorships.filter(s => s.status === 'active').length}</p>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
+const sessions: { id: TrainingIntensity; name: string; detail: string; cost: number; icon: typeof Zap }[] = [
+  { id: 'recovery', name: 'Recuperação', detail: 'Carga baixa · pouco desgaste', cost: 80, icon: HeartPulse },
+  { id: 'balanced', name: 'Equilibrado', detail: 'Progresso e carga moderados', cost: 120, icon: Dumbbell },
+  { id: 'high', name: 'Alta intensidade', detail: 'Mais progresso · maior risco de lesão', cost: 180, icon: Zap },
+];
+export function Lifestyle({ save, player, onFocus, onTrain, onBuyRecovery, onHireTrainer }:{ save:GameSave; player:Player; onFocus:(focus:GameSave['trainingFocus'])=>void; onTrain:(intensity:TrainingIntensity)=>void; onBuyRecovery:()=>void; onHireTrainer:()=>void }) {
+  const selectedFocus=focuses.find(i=>i.key===save.trainingFocus)?.name??'Finalização';
+  const relationships=[['Treinador',player.coachRelationship??0],['Adeptos',player.fanRelationship??0],['Moral',player.morale??0],['Comunicação social',player.mediaReputation??55]] as const;
+  const injured=(save.injuries??[]).some(i=>i.weeksRemaining>0);
+  return <div className="space-y-5"><div><p className="text-sm text-lime-400">Rotina de atleta</p><h1 className="mt-1 text-3xl font-bold">Treino e recuperação</h1><p className="mt-2 text-sm text-slate-400">Escolhe o foco e a carga. O treino altera atributos, fadiga, risco de lesão e finanças.</p></div>
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]"><section className="panel p-5 sm:p-6"><div className="flex items-center gap-3"><Dumbbell className="text-lime-300"/><div><h2 className="font-semibold">Plano semanal · jornada {save.week}</h2><p className="text-xs text-slate-500">Foco selecionado: {selectedFocus}</p></div></div><div className="mt-5 grid gap-2 sm:grid-cols-3">{focuses.map(item=><button key={item.key} onClick={()=>onFocus(item.key)} className={`flex items-center justify-between rounded-xl border p-3 text-left ${save.trainingFocus===item.key?'border-lime-400/50 bg-lime-400/10':'border-white/5 bg-white/[.02]'}`}><span><b className="block text-sm">{item.name}</b><small className="text-xs text-slate-500">{item.group}</small></span>{save.trainingFocus===item.key&&<Check size={16} className="text-lime-300"/>}</button>)}</div><div className="mt-5 border-t border-white/5 pt-4"><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Escolhe a intensidade</p><div className="grid gap-2 sm:grid-cols-3">{sessions.map(session=>{const Icon=session.icon;return <button key={session.id} disabled={save.trainedThisWeek||save.balance<session.cost||injured||save.matchPlayedThisWeek} onClick={()=>onTrain(session.id)} className="rounded-xl border border-white/5 bg-white/[.025] p-3 text-left transition hover:border-lime-400/30 hover:bg-lime-400/[.04] disabled:opacity-45"><div className="flex items-center justify-between"><b className="text-sm">{session.name}</b><Icon size={15} className="text-lime-300"/></div><p className="mt-1 min-h-8 text-[11px] leading-4 text-slate-500">{session.detail}</p><p className="mt-2 text-xs font-semibold text-slate-300">€{session.cost}</p></button>})}</div><p className="mt-3 text-xs text-slate-500">{save.trainedThisWeek?'Já treinaste esta jornada.':injured?'Treino suspenso enquanto recuperas.':save.matchPlayedThisWeek?'Avança a jornada para iniciar o próximo plano.':'Uma sessão por jornada · atributos evoluem gradualmente.'}</p></div></section>
+    <section className="panel p-5 sm:p-6"><div className="flex items-center gap-3"><HeartPulse className="text-rose-300"/><h2 className="font-semibold">Bem-estar e relações</h2></div><p className="mt-3 text-sm text-slate-500">A forma, a conduta e as entrevistas refletem-se nas relações dentro e fora do clube.</p>{relationships.map(([label,value])=><div key={label} className="mt-4"><div className="mb-2 flex justify-between text-sm"><span className="text-slate-400">{label}</span><b>{value}%</b></div><div className="h-2 rounded-full bg-white/5"><div className="h-full rounded-full bg-lime-400" style={{width:`${value}%`}}/></div></div>)}<div className="mt-5 rounded-xl border border-white/5 bg-white/[.025] p-4"><div className="flex justify-between text-sm"><span className="text-slate-500">Fadiga atual</span><b>{Math.round(save.career.fatigue)}%</b></div><div className="mt-2 h-2 rounded-full bg-white/5"><div className="h-full rounded-full bg-amber-300" style={{width:`${save.career.fatigue}%`}}/></div>{injured&&<p className="mt-3 text-xs text-rose-300">Lesão ativa: {(save.injuries??[]).find(i=>i.weeksRemaining>0)?.name} · {(save.injuries??[]).find(i=>i.weeksRemaining>0)?.weeksRemaining} jornada(s)</p>}</div></section></div>
+    <section className="panel p-5 sm:p-6"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Investimento pessoal</p><h2 className="mt-1 text-lg font-semibold">Equipamento e equipa técnica</h2><p className="mt-1 text-sm text-slate-500">Compras afetam o saldo; os benefícios mantêm-se até ao fim da carreira.</p></div><div className="mt-4 grid gap-3 md:grid-cols-2"><article className="rounded-xl border border-white/5 bg-white/[.025] p-4"><div className="flex items-center gap-3"><Footprints className="text-sky-300"/><div><h3 className="font-semibold">Botas de recuperação</h3><p className="text-xs text-slate-500">Recupera mais 12 pontos de fadiga por jornada.</p></div></div><div className="mt-4 flex items-center justify-between"><strong>€2.400</strong><button disabled={save.recoveryAssets?.includes('recoveryBoots')||save.balance<2400||save.matchPlayedThisWeek} className="btn-secondary" onClick={onBuyRecovery}>{save.recoveryAssets?.includes('recoveryBoots')?'Adquiridas':'Comprar'}</button></div></article><article className="rounded-xl border border-white/5 bg-white/[.025] p-4"><div className="flex items-center gap-3"><UserRound className="text-lime-300"/><div><h3 className="font-semibold">Treinador pessoal</h3><p className="text-xs text-slate-500">+20% de desenvolvimento, menor sobrecarga; €250/jornada.</p></div></div><div className="mt-4 flex items-center justify-between"><strong>{save.personalTrainer?'€250 / jornada':'€1.200 inicial'}</strong><button disabled={save.personalTrainer||save.balance<1200||save.matchPlayedThisWeek} className="btn-secondary" onClick={onHireTrainer}>{save.personalTrainer?'Contratado':'Contratar'}</button></div></article></div></section>
+    <section className="panel p-5"><h2 className="font-semibold">Finanças e patrocínios</h2><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white/[.03] p-4"><p className="text-xs text-slate-500">Saldo disponível</p><p className="mt-1 text-xl font-bold">€{save.balance.toLocaleString('pt-PT')}</p></div><div className="rounded-xl bg-white/[.03] p-4"><p className="text-xs text-slate-500">Salário semanal</p><p className="mt-1 text-xl font-bold">€{(player.contract?.weeklyWage??0).toLocaleString('pt-PT')}</p></div><div className="rounded-xl bg-white/[.03] p-4"><p className="text-xs text-slate-500">Patrocínios ativos</p><p className="mt-1 text-xl font-bold">{save.sponsorships.filter(s=>s.status==='active').length}</p></div></div></section>
+  </div>;
 }

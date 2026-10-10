@@ -1,65 +1,52 @@
-import { useState } from 'react';
-import { ArrowRight, Play, Shield, Zap } from 'lucide-react';
-import type { MatchResult, TacticalStyle, Team } from '../types';
-import { simulateMatch } from '../engine/matchEngine';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Pause, Play, Shield, Zap, Activity } from 'lucide-react';
+import type { MatchInstruction, MatchResult, TacticalStyle, Team } from '../types';
+import { createMatchSession, type MatchSnapshot } from '../engine/matchSession';
 
 const tactics: { id: TacticalStyle; name: string; detail: string }[] = [
-  { id: 'balanced', name: 'Equilibrada', detail: 'Sem riscos extremos' },
-  { id: 'possession', name: 'Posse', detail: 'Mais controlo da bola' },
-  { id: 'counterAttack', name: 'Contra-ataque', detail: 'Explora espaços' },
-  { id: 'highPress', name: 'Pressão alta', detail: 'Pressiona e acelera' },
+  { id: 'balanced', name: 'Equilibrada', detail: 'Sem riscos extremos' }, { id: 'possession', name: 'Posse', detail: 'Mais controlo da bola' },
+  { id: 'counterAttack', name: 'Contra-ataque', detail: 'Explora espaços' }, { id: 'highPress', name: 'Pressão alta', detail: 'Acelera a recuperação' },
 ];
+const instructions: { id: MatchInstruction; title: string; note: string }[] = [
+  { id: 'keepPossession', title: 'Reter posse', note: 'mais passes, ritmo controlado' }, { id: 'throughBall', title: 'Bola nas costas', note: 'mais risco, procura o avançado' },
+  { id: 'longShot', title: 'Remate de longe', note: 'mais remates, menor qualidade' }, { id: 'pressHigh', title: 'Pressão alta', note: 'recuperação agressiva, maior fadiga' },
+];
+const emptySnapshot = (): MatchSnapshot => ({ minute: 0, homeScore: 0, awayScore: 0, events: [], homeStats: { shots: 0, shotsOnTarget: 0, possession: 50, yellowCards: 0, redCards: 0, passes: 0, passAccuracy: 0, tackles: 0 }, awayStats: { shots: 0, shotsOnTarget: 0, possession: 50, yellowCards: 0, redCards: 0, passes: 0, passAccuracy: 0, tackles: 0 }, playerFatigue: {}, playerStats: {}, finished: false });
+const instructionForStyle: Record<TacticalStyle, MatchInstruction> = { balanced: 'balanced', possession: 'keepPossession', counterAttack: 'throughBall', highPress: 'pressHigh' };
 
-export function MatchCenter({
-  home, away, result, fixtureNumber, clubId, playerId, initialFatigue, tacticalStyle, onTacticChange, onResult, onNextFixture,
-}: {
-  home: Team;
-  away: Team;
-  clubId: string;
-  playerId: string;
-  initialFatigue: number;
-  result?: MatchResult;
-  fixtureNumber: number;
-  tacticalStyle: TacticalStyle;
-  onTacticChange: (style: TacticalStyle) => void;
-  onResult: (result: MatchResult) => void;
-  onNextFixture: () => void;
-}) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const play = () => {
-    if (isPlaying || result) return;
-    setIsPlaying(true);
-    window.setTimeout(() => {
-      const userTeam = home.id === clubId ? { ...home, tacticalStyle } : { ...away, tacticalStyle };
-      const matchHome = home.id === clubId ? userTeam : home;
-      const matchAway = away.id === clubId ? userTeam : away;
-      onResult(simulateMatch(matchHome, matchAway, { initialFatigue: { [playerId]: initialFatigue } }));
-      setIsPlaying(false);
-    }, 350);
-  };
-  const homeStats = result?.stats[home.id];
-  const awayStats = result?.stats[away.id];
-
+export function MatchCenter({ home, away, result, fixtureNumber, clubId, playerId, initialFatigue, tacticalStyle, onTacticChange, onResult, onNextFixture }:{ home: Team; away: Team; clubId: string; playerId: string; initialFatigue: number; result?: MatchResult; fixtureNumber: number; tacticalStyle: TacticalStyle; onTacticChange: (style:TacticalStyle)=>void; onResult:(result:MatchResult)=>void; onNextFixture:()=>void }) {
+  const session = useRef<ReturnType<typeof createMatchSession> | null>(null); const sent = useRef(false); const instructionRef = useRef<MatchInstruction>(instructionForStyle[tacticalStyle]);
+  const [snapshot, setSnapshot] = useState<MatchSnapshot>(emptySnapshot); const [playing, setPlaying] = useState(false); const [speed, setSpeed] = useState(1);
+  const [instruction, setInstruction] = useState<MatchInstruction>(instructionForStyle[tacticalStyle]); const [breakAt, setBreakAt] = useState(0);
+  const [feed, setFeed] = useState<MatchSnapshot['events']>([]);
+  useEffect(() => { instructionRef.current = instruction; }, [instruction]);
+  useEffect(() => { session.current = null; sent.current = false; setSnapshot(emptySnapshot()); setFeed([]); setBreakAt(0); setPlaying(false); setInstruction(instructionForStyle[tacticalStyle]); }, [fixtureNumber, home.id, away.id, tacticalStyle]);
+  useEffect(() => {
+    if (!playing || result) return;
+    const timer = window.setInterval(() => {
+      if (!session.current) return;
+      const next = session.current.step(instructionRef.current); setSnapshot(next);
+      setFeed(next.events.slice(-12));
+      if (next.minute > 0 && next.minute < 90 && next.minute % 15 === 0) { setPlaying(false); setBreakAt(next.minute); }
+      if (next.finished) { setPlaying(false); setBreakAt(0); if (!sent.current) { sent.current = true; onResult(session.current.result()); } }
+    }, Math.max(50, 700 / speed));
+    return () => window.clearInterval(timer);
+  }, [playing, speed, result, onResult]);
+  const start = () => { if (session.current || result) return; const user = home.id === clubId ? { ...home, tacticalStyle } : { ...away, tacticalStyle }; session.current = createMatchSession(home.id === clubId ? user : home, away.id === clubId ? user : away, { matchId: `s${fixtureNumber}-${home.id}-${away.id}`, userTeamId: clubId, initialFatigue: { [playerId]: initialFatigue }, duration: 90 }); setInstruction(instructionForStyle[tacticalStyle]); setPlaying(true); };
+  const chooseInstruction = (id: MatchInstruction) => { setInstruction(id); instructionRef.current = id; setBreakAt(0); setPlaying(true); };
+  const displayed = result ? { minute: 90, homeScore: result.homeScore, awayScore: result.awayScore, events: result.events, homeStats: result.stats[home.id], awayStats: result.stats[away.id] } : snapshot;
+  const homeStats = displayed.homeStats; const awayStats = displayed.awayStats; const latestEvents = result ? [...result.events].slice(-12).reverse() : [...feed].reverse();
+  const possessionSide = homeStats?.possession >= (awayStats?.possession ?? 50) ? 1 : 0;
+  const isLive = !!session.current && !result;
+  const onTargetHome = homeStats?.shotsOnTarget ?? 0; const onTargetAway = awayStats?.shotsOnTarget ?? 0;
   return <div className="space-y-5">
-    <div><p className="text-sm text-lime-400">Liga Portuguesa · Jornada {fixtureNumber}</p><h1 className="mt-1 text-3xl font-bold">Centro de jogo</h1></div>
-    <section className="panel p-6 sm:p-9">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-        <div><div className="crest mx-auto">FA</div><h2 className="mt-3 font-semibold">{home.name}</h2><p className="text-xs text-slate-500">Casa</p></div>
-        <div><p className="text-xs uppercase tracking-widest text-slate-500">{result ? 'Final' : '90 min'}</p><div className="my-2 text-4xl font-black tabular-nums">{result ? `${result.homeScore} : ${result.awayScore}` : 'VS'}</div><p className="text-xs text-slate-500">{result ? 'Apito final' : 'Simulação de partida'}</p></div>
-        <div><div className="crest crest-muted mx-auto">PN</div><h2 className="mt-3 font-semibold">{away.name}</h2><p className="text-xs text-slate-500">Visitante</p></div>
-      </div>
-      {!result && <div className="mx-auto mt-8 max-w-3xl">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><Shield size={16} className="text-lime-300" /> Escolhe a abordagem tática</div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{tactics.map(tactic => <button key={tactic.id} onClick={() => onTacticChange(tactic.id)} className={`rounded-xl border p-3 text-left transition ${tacticalStyle === tactic.id ? 'border-lime-400/50 bg-lime-400/10' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'}`}><span className="block text-sm font-semibold">{tactic.name}</span><span className="text-xs text-slate-500">{tactic.detail}</span></button>)}</div>
-      </div>}
-      <div className="mt-7 flex justify-center">{result
-        ? <button className="btn-primary min-w-48 justify-center" onClick={onNextFixture}><ArrowRight size={17} /> Avançar para jornada {fixtureNumber + 1}</button>
-        : <button className="btn-primary min-w-48 justify-center" disabled={isPlaying} onClick={play}>{isPlaying ? <><span className="animate-pulse">A simular...</span><Zap size={16} /></> : <><Play size={17} fill="currentColor" /> Iniciar partida</>}</button>}
-      </div>
-    </section>
-    {result && <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-      <section className="panel p-5"><h2 className="mb-4 font-semibold">Estatísticas</h2>{[['Posse de bola', `${homeStats?.possession}%`, `${awayStats?.possession}%`], ['Remates', `${homeStats?.shots}`, `${awayStats?.shots}`], ['À baliza', `${homeStats?.shotsOnTarget}`, `${awayStats?.shotsOnTarget}`], ['Cartões amarelos', `${homeStats?.yellowCards}`, `${awayStats?.yellowCards}`], ['Cartões vermelhos', `${homeStats?.redCards}`, `${awayStats?.redCards}`]].map(([name, h, a]) => <div key={name} className="grid grid-cols-[1fr_auto_1fr] border-t border-white/5 py-3 text-sm"><span>{h}</span><span className="px-3 text-center text-slate-500">{name}</span><span className="text-right">{a}</span></div>)}</section>
-      <section className="panel p-5"><h2 className="mb-4 font-semibold">Relato da partida</h2><div className="max-h-72 space-y-2 overflow-y-auto pr-1">{[...result.events].reverse().map((event, index) => <div key={`${event.minute}-${event.type}-${index}`} className="flex gap-3 rounded-lg bg-white/[0.03] p-3"><span className="w-10 shrink-0 font-mono text-lime-300">{event.minute}'</span><span className="text-sm text-slate-300">{event.description}</span></div>)}{result.events.length === 0 && <p className="text-sm text-slate-500">Jogo sem ocorrências destacadas.</p>}</div></section>
-    </div>}
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm text-lime-400">Liga Portuguesa · Jornada {fixtureNumber}</p><h1 className="mt-1 text-3xl font-bold">Centro de jogo</h1><p className="mt-1 text-sm text-slate-500">Plano tático e decisões com impacto no relvado.</p></div>{isLive && <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-300"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400"/> AO VIVO · {snapshot.minute}'</div>}</div>
+    {!result && !isLive && <section className="panel p-5 sm:p-6"><div className="mb-4 flex items-center gap-2 text-sm font-semibold"><Shield size={16} className="text-lime-300"/> Plano para o jogo</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{tactics.map(t => <button key={t.id} onClick={()=>onTacticChange(t.id)} className={`rounded-xl border p-3 text-left ${tacticalStyle===t.id?'border-lime-400/50 bg-lime-400/10':'border-white/5 bg-white/[0.02]'}`}><b className="block text-sm">{t.name}</b><span className="text-xs text-slate-500">{t.detail}</span></button>)}</div><div className="mt-5 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">O ritmo e as opções alteram os eventos, fadiga e estatísticas.</p><button className="btn-primary" onClick={start}><Play size={16} fill="currentColor"/> Apito inicial</button></div></section>}
+    {(isLive || result) && <section className="panel overflow-hidden"><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/5 px-4 py-5 text-center sm:px-8"><div><div className="crest mx-auto">{home.shortName}</div><h2 className="mt-2 text-sm font-semibold sm:text-base">{home.name}</h2><span className="text-[10px] uppercase tracking-widest text-slate-600">Casa</span></div><div><p className="font-mono text-xs text-slate-500">{result?'FINAL':isLive?`${snapshot.minute}' · AO VIVO`:'90 MIN'}</p><div className="my-1 text-4xl font-black tabular-nums sm:text-5xl">{displayed.homeScore} <span className="text-slate-600">:</span> {displayed.awayScore}</div>{isLive && <span className="text-xs text-lime-300">{instruction.replace(/([A-Z])/g,' $1')}</span>}</div><div><div className="crest crest-muted mx-auto">{away.shortName}</div><h2 className="mt-2 text-sm font-semibold sm:text-base">{away.name}</h2><span className="text-[10px] uppercase tracking-widest text-slate-600">Fora</span></div></div>
+      {!result && <div className="grid gap-4 p-4 lg:grid-cols-[1.25fr_0.75fr] sm:p-5"><div className="space-y-4"><div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#123b31] p-3"><svg viewBox="0 0 700 330" className="h-52 w-full sm:h-64" role="img" aria-label="Visualização ao vivo do campo"><rect x="6" y="6" width="688" height="318" rx="18" fill="#164735" stroke="#a8c29c" strokeOpacity=".65"/><path d="M350 6v318M6 165h115v-70h60v140h-60v-70M694 165H579v-70h-60v140h60v-70" fill="none" stroke="#b9cfaa" strokeOpacity=".55" strokeWidth="2"/><circle cx="350" cy="165" r="52" fill="none" stroke="#b9cfaa" strokeOpacity=".55" strokeWidth="2"/><circle cx="350" cy="165" r="3" fill="#b9cfaa"/><circle cx={possessionSide ? 395 + Math.sin(snapshot.minute)*15 : 305 + Math.cos(snapshot.minute)*15} cy={130 + Math.sin(snapshot.minute/3)*45} r="11" fill="#f1c75b" stroke="white" strokeWidth="3"/><text x="22" y="30" fill="#d2dfc7" fontSize="12">{home.shortName}</text><text x="635" y="30" fill="#d2dfc7" fontSize="12">{away.shortName}</text></svg><div className="absolute bottom-5 left-6 rounded-full bg-black/35 px-3 py-1 text-[10px] text-white/70">Posse atual · {homeStats?.possession ?? 50}% — {awayStats?.possession ?? 50}%</div></div><div className="grid grid-cols-3 gap-2">{[['REMATES',`${homeStats?.shots??0} — ${awayStats?.shots??0}`],['À BALIZA',`${onTargetHome} — ${onTargetAway}`],['PASSES CERTOS',`${homeStats?.passAccuracy??0}% — ${awayStats?.passAccuracy??0}%`]].map(([title,value])=><div className="rounded-xl bg-white/[0.03] p-3 text-center" key={title}><p className="text-[9px] tracking-wider text-slate-500">{title}</p><b className="mt-1 block text-sm">{value}</b></div>)}</div><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><button className="btn-secondary" onClick={()=>setPlaying(v=>!v)}>{playing?<Pause size={15}/>:<Play size={15}/>} {playing?'Pausa':'Continuar'}</button><button className="btn-secondary" onClick={()=>setSpeed(v=>v===1?3:1)}><Zap size={14}/> {speed}× velocidade</button></div><span className="text-xs text-slate-500">Próxima pausa tática aos {Math.min(90,Math.ceil((snapshot.minute+1)/15)*15)}'</span></div></div>
+        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4"><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">Relato ao minuto</h3><span className="font-mono text-xs text-lime-300">{snapshot.minute}'</span></div><div className="max-h-72 space-y-2 overflow-y-auto">{latestEvents.map((e,i)=><div key={`${e.minute}-${e.type}-${i}`} className={`flex gap-3 rounded-lg p-3 ${e.type==='goal'?'bg-lime-400/10':'bg-white/[0.025]'}`}><span className="w-9 shrink-0 font-mono text-xs text-lime-300">{e.minute}'</span><span className="text-xs leading-5 text-slate-300">{e.description}</span></div>)}{!latestEvents.length&&<p className="py-8 text-center text-sm text-slate-600">A bola está a rolar. Aguardam-se momentos de perigo.</p>}</div></div></div>}
+      {breakAt>0&&!result&&<div className="border-t border-amber-300/15 bg-amber-300/[0.035] p-4 sm:p-5"><div className="mb-3 flex items-center gap-2"><Activity size={16} className="text-amber-200"/><div><h3 className="font-semibold">Pausa tática · {breakAt}'</h3><p className="text-xs text-slate-500">Escolhe uma instrução para os próximos minutos — risco e benefício incluídos.</p></div></div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{instructions.map(choice=><button key={choice.id} onClick={()=>chooseInstruction(choice.id)} className={`rounded-xl border p-3 text-left ${instruction===choice.id?'border-amber-200/40 bg-amber-200/10':'border-white/5 bg-white/[0.02]'}`}><b className="block text-sm">{choice.title}</b><span className="text-xs text-slate-500">{choice.note}</span></button>)}</div></div>}
+    </section>}
+    {result&&<div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]"><section className="panel p-5"><h2 className="mb-4 font-semibold">Estatísticas finais</h2>{[['Posse',`${homeStats?.possession??0}%`,`${awayStats?.possession??0}%`],['Remates',`${homeStats?.shots??0}`,`${awayStats?.shots??0}`],['À baliza',`${homeStats?.shotsOnTarget??0}`,`${awayStats?.shotsOnTarget??0}`],['Precisão de passe',`${homeStats?.passAccuracy??0}%`,`${awayStats?.passAccuracy??0}%`],['Cartões amarelos',`${homeStats?.yellowCards??0}`,`${awayStats?.yellowCards??0}`],['Cartões vermelhos',`${homeStats?.redCards??0}`,`${awayStats?.redCards??0}`]].map(([name,h,a])=><div key={name} className="grid grid-cols-[1fr_auto_1fr] border-t border-white/5 py-3 text-sm"><span>{h}</span><span className="px-3 text-center text-slate-500">{name}</span><span className="text-right">{a}</span></div>)}</section><section className="panel p-5"><h2 className="mb-4 font-semibold">Momentos-chave</h2><div className="max-h-72 space-y-2 overflow-y-auto">{[...result.events].reverse().map((e,i)=><div key={`${e.minute}-${e.type}-${i}`} className="flex gap-3 rounded-lg bg-white/[0.03] p-3"><span className="w-10 shrink-0 font-mono text-lime-300">{e.minute}'</span><span className="text-sm text-slate-300">{e.description}</span></div>)}</div><button className="btn-primary mt-4" onClick={onNextFixture}><ArrowRight size={16}/> Avançar para jornada {fixtureNumber+1}</button></section></div>}
   </div>;
 }
