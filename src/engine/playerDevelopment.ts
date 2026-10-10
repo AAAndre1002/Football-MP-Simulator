@@ -125,7 +125,7 @@ export function explainMarketValue(player: Player, recentRatings: number[] = [],
   const reputationFactor = clamp(0.8 + (player.mediaReputation ?? 50) / 250, 0.8, 1.25);
   const overall = clamp(player.overall, 1, 99);
   const potential = clamp(player.potential ?? overall, overall, 99);
-  const baseTalentValue = Math.pow(overall, 3) * 6_000;
+  const baseTalentValue = Math.pow(overall, 3) * 10;
   const potentialFactor = clamp(1 + (potential - overall) * 0.012, 1, 1.6);
   const estimatedValue = Math.round(clamp(baseTalentValue * ageFactor * potentialFactor * formFactor * minutesFactor * contributionFactor * contractFactor * reputationFactor, 10_000, 250_000_000));
   return { estimatedValue, baseTalentValue, ageFactor, potentialFactor, formFactor, minutesFactor, contributionFactor, contractFactor, reputationFactor, formRating };
