@@ -3,7 +3,7 @@ import { leagueTeams, playerCharacter } from '../data/mockTeams';
 import { seededRandom } from './season';
 import { simulateMatch } from './matchEngine';
 import { createMatchSession } from './matchSession';
-import { applyTraining, recoverFatigue, recoverInjuries, calculateMarketValue } from './playerDevelopment';
+import { applyTraining, recoverFatigue, recoverInjuries, calculateMarketValue, explainMarketValue, recordMarketValuePoint, remainingContractYears } from './playerDevelopment';
 import { counterOffer, evaluateOffer, generateTransferOffers } from './transferMarket';
 import { answerPressConference, pressChoices, pressHeadline } from './pressConference';
 import type { PendingPress } from '../types';
@@ -42,6 +42,30 @@ describe('career simulation systems', () => {
     const offer = make()[0];
     if (offer) { expect(['accept','negotiate','reject']).toContain(evaluateOffer(offer, player).recommendation); expect(counterOffer(offer, player, true).weeklyWage).toBeGreaterThanOrEqual(offer.weeklyWage); }
   });
+  it('market value transparently reacts to potential, minutes, contributions and contract length', () => {
+    const base = { ...playerCharacter, age: 20, overall: 65, potential: 86, mediaReputation: 50, contract: { id: 'c', playerId: 'p', teamId: 't', startDate: '2026-07-01', endDate: '2029-06-30', weeklyWage: 500, releaseClause: 100000 } };
+    const context = { appearances: 20, totalMinutes: 1800, goals: 8, assists: 6, contractYearsRemaining: 3 };
+    const strong = explainMarketValue(base, [8, 8, 8, 8, 8], context);
+    expect(strong.estimatedValue).toBeGreaterThan(explainMarketValue(base, [5, 5, 5], { ...context, goals: 0, assists: 0, totalMinutes: 500, contractYearsRemaining: 0 }).estimatedValue);
+    expect(strong.potentialFactor).toBeGreaterThan(1);
+    expect(strong.minutesFactor).toBe(1);
+    expect(calculateMarketValue(base, [8], context)).toBe(strong.estimatedValue);
+    expect(explainMarketValue(base, [], { appearances: 0 }).estimatedValue).toBeGreaterThanOrEqual(10_000);
+  });
+
+  it('uses deterministic simulated contract dates rather than the computer clock', () => {
+    const player = { ...playerCharacter, contract: { id: 'c', playerId: 'p', teamId: 't', startDate: '2026-07-01', endDate: '2027-06-30', weeklyWage: 500, releaseClause: 100000 } };
+    expect(remainingContractYears(player, 1, 1)).toBeGreaterThan(0.99);
+    expect(remainingContractYears(player, 1, 10)).toBeLessThan(0.3);
+    expect(remainingContractYears(player, 2, 1)).toBe(0);
+  });
+
+  it('replaces the same-week market-history point and caps stored history', () => {
+    expect(recordMarketValuePoint([{ week: 1, value: 100 }, { week: 2, value: 200 }], 2, 250)).toEqual([{ week: 1, value: 100 }, { week: 2, value: 250 }]);
+    expect(recordMarketValuePoint(undefined, 1, 10)).toEqual([{ week: 1, value: 10 }]);
+    expect(recordMarketValuePoint(Array.from({ length: 30 }, (_, i) => ({ week: i + 1, value: i })), 31, 31)).toHaveLength(30);
+  });
+
   it('press conference answers change relationships and create a headline', () => {
     const press: PendingPress = { id: 'press', week: 1, opponent: away.name, score: '2–1', outcome: 'win', rating: 8 };
     const teamFirst = answerPressConference(playerCharacter, press, 'team_first');
