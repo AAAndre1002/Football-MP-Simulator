@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, Shield, UserRound, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 import {
   CAREER_SEASON, DEFAULT_CREATION, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, POSITIONS,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, profileForRole, rolesForPosition, submitPlayerCreation, validateCreation,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, profileForRole, rolesForPosition, validateCreation,
   type CreatedPlayer, type FlatAttribute, type PlayerCreationInput,
 } from './playerCreation';
 
@@ -46,14 +47,12 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     const selected = current.secondaryPositions.includes(position) ? current.secondaryPositions.filter(item => item !== position) : current.secondaryPositions.length < 2 ? [...current.secondaryPositions, position] : current.secondaryPositions;
     return { ...current, secondaryPositions: selected };
   });
-  const completeCreation = () => { setSubmittedError('');
-    let issue: string | null = null;     try {       issue = submitPlayerCreation(input, created => { setSubmittedError(''); onComplete(created); });     } catch (error) {       setSubmittedError(`Falha ao criar o jogador: ${error instanceof Error ? `${error.message}\n${''}` : String(error)}`);       return;     }
-    if (issue) { setSubmittedError(issue); return; }
-    setSubmittedError('');
-  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    completeCreation();
+    const issue = validateCreation(input)[0];
+    if (issue) { setSubmittedError(issue); return; }
+    setSubmittedError('');
+    onComplete(createPlayer(input));
   };
   const canAdvance = step === 0
     ? !!input.name.trim() && !!input.nationality.trim() && !!input.birthCountry.trim() && !!input.birthRegion.trim() && !!input.birthCity.trim()
@@ -64,17 +63,22 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
   return (
     <main className="opening-screen min-h-screen bg-black px-4 py-8 text-white sm:px-6">
       <div className="stadium-glow" aria-hidden="true" />
-      <section className="relative mx-auto max-w-3xl">
+      <section className="relative mx-auto max-w-5xl">
         <header className="mb-7 flex items-center justify-between gap-3">
           <div><p className="opening-eyebrow"><span /> CRIADOR DE JOGADOR</p><h1 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">Constrói o teu atleta</h1><p className="mt-1 text-sm text-neutral-400">Início aos 16 anos · Época {CAREER_SEASON}</p></div>
           {onCancel && <button type="button" onClick={onCancel} className="btn-secondary">Sair</button>}
         </header>
+        <section aria-label="Pré-visualização do jogador" className="mb-5 flex items-center gap-4 rounded-2xl border border-amber-200/15 bg-gradient-to-r from-[#171916] to-[#101214] p-3 sm:gap-5 sm:p-4">
+          <PlayerAvatar player={{ name: input.name, appearance: input.appearance }} className="h-28 w-24 shrink-0 sm:h-36 sm:w-32" />
+          <div className="min-w-0 flex-1"><p className="text-[10px] font-bold uppercase tracking-[.22em] text-amber-200">Pré-visualização ao vivo</p><h2 className="mt-2 truncate text-xl font-bold sm:text-2xl">{input.name.trim() || 'O teu jogador'}</h2><p className="mt-1 text-sm text-neutral-400">{labelFor(input.primaryPosition)} · 16 anos · {input.nationality || 'Nacionalidade por definir'}</p><div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-neutral-400"><span className="rounded-full border border-white/10 px-2.5 py-1">Cabelo {input.appearance.hairStyle}</span><span className="rounded-full border border-white/10 px-2.5 py-1">{input.appearance.hairColor}</span><span className="rounded-full border border-white/10 px-2.5 py-1">Olhos {input.appearance.eyeColor}</span></div></div>
+          <div className="hidden rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center sm:block"><p className="text-[9px] uppercase tracking-widest text-neutral-500">Overall</p><p className="mt-1 text-2xl font-black text-amber-200">{calculateOverall(input.attributes, input.primaryPosition, input.roleId)}</p></div>
+        </section>
         <div className="mb-5 grid grid-cols-4 gap-2" aria-label={`Passo ${step + 1} de ${steps.length}`}>
           {steps.map((item, index) => <div key={item.title} className={`rounded-lg border p-2 sm:p-3 ${index === step ? 'border-yellow-300/50 bg-yellow-300/[.08]' : index < step ? 'border-yellow-300/20 bg-white/[.03]' : 'border-white/[.07] bg-black/30'}`}>
             <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide sm:gap-2 sm:text-[10px]">{index < step ? <Check size={14} className="text-yellow-300" /> : <item.icon size={14} className={index === step ? 'text-yellow-300' : 'text-neutral-500'} />}<span className={index === step ? 'text-yellow-100' : 'text-neutral-500'}>{item.title}</span></div>
           </div>)}
         </div>
-        <form className="opening-card" onSubmit={submit} noValidate>
+        <form className="opening-card" onSubmit={submit}>
           <div className="mb-6"><p className="opening-eyebrow small"><span /> PASSO {step + 1} DE {steps.length}</p><h2 className="mt-2 text-xl font-bold">{steps[step].title}</h2><p className="mt-1 text-sm text-neutral-400">{steps[step].hint}</p></div>
           {step === 0 && <div className="grid gap-4 sm:grid-cols-2">
             <label className="field-label sm:col-span-2">NOME DO JOGADOR<input autoFocus className="field-input" maxLength={60} value={input.name} onChange={event => setField('name', event.target.value)} placeholder="Ex.: Alex Silva" /></label>
@@ -101,6 +105,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
             <p className="rounded-lg border border-yellow-300/10 bg-yellow-300/[.035] p-3 text-xs leading-5 text-neutral-400">As opções variam conforme a posição principal. O guarda-redes não tem posições secundárias; o ponta de lança pode adaptar-se a médio ofensivo ou extremo, nunca a médio defensivo.</p>
           </div>}
           {step === 3 && <div className="space-y-5">
+            <div className="flex flex-col items-center gap-4 rounded-2xl border border-amber-200/15 bg-gradient-to-br from-[#191b18] to-[#101214] p-4 sm:flex-row sm:p-5"><PlayerAvatar player={{ name: input.name, appearance: input.appearance }} className="h-52 w-44 shrink-0 sm:h-60 sm:w-52" /><div className="text-center sm:text-left"><p className="text-[10px] font-bold uppercase tracking-[.22em] text-amber-200">Revisão final do atleta</p><h3 className="mt-2 text-2xl font-black">{input.name}</h3><p className="mt-1 text-sm text-neutral-400">{input.nationality} · {labelFor(input.primaryPosition)} · 16 anos</p><p className="mt-3 text-xs leading-5 text-neutral-400">Este retrato ilustrado é gerado no jogo com as opções de cabelo e olhos escolhidas. Será mantido no teu perfil e no save.</p></div></div>
             <div className="grid gap-3 rounded-lg border border-white/[.07] bg-black/30 p-3 sm:grid-cols-3"><div><span className="text-[9px] uppercase tracking-wider text-neutral-500">Posição / função</span><p className="mt-1 text-sm font-bold">{labelFor(input.primaryPosition)} · {rolesForPosition(input.primaryPosition).find(item => item.id === input.roleId)?.label}</p></div><div><span className="text-[9px] uppercase tracking-wider text-neutral-500">Perfil geral</span><p className="mt-1 text-sm font-bold text-yellow-200">Overall {calculateOverall(input.attributes, input.primaryPosition, input.roleId)} · Potencial {calculatePotential(calculateOverall(input.attributes, input.primaryPosition, input.roleId), input.roleId, input.primaryPosition)}</p></div><div><span className="text-[9px] uppercase tracking-wider text-neutral-500">Época inicial</span><p className="mt-1 text-sm font-bold">Idade 16 · {CAREER_SEASON}</p></div></div>
             <p className="text-xs leading-5 text-neutral-400">Perfil predefinido por posição e função. Podes ajustar cada atributo; todos têm de permanecer entre 0 e 100. Overall usa pesos da função; potencial é calculado em separado.</p>
             <div className="grid gap-4 sm:grid-cols-2">{attributeGroups.map(group => <fieldset key={group.title} className="rounded-lg border border-white/[.07] bg-black/25 p-3"><legend className="px-1 text-[10px] font-bold uppercase tracking-wider text-yellow-200">{group.title}</legend>{group.keys.map(key => <label key={key} className={`my-2 grid grid-cols-[1fr_auto] items-center gap-x-3 ${group.title === 'Guarda-redes' && input.primaryPosition !== 'GK' ? 'opacity-40' : ''}`}><span className="text-xs text-neutral-300">{attributeLabels[key]}</span><span className="text-xs font-bold tabular-nums text-yellow-100">{input.attributes[key]}</span><input aria-label={attributeLabels[key]} type="range" min={0} max={100} step={1} value={input.attributes[key]} onChange={event => setField('attributes', { ...input.attributes, [key]: Number(event.target.value) })} className="col-span-2 h-2 w-full accent-yellow-300" /></label>)}</fieldset>)}</div>
@@ -110,7 +115,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
           {submittedError && <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/[.07] p-3 text-sm text-red-200">{submittedError}</p>}
           <div className="mt-7 flex items-center justify-between border-t border-white/[.07] pt-5">
             <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.max(0, value - 1)); }} disabled={step === 0} className="btn-secondary"><ArrowLeft size={15} /> Anterior</button>
-            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="button" onClick={completeCreation} disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
+            {step < steps.length - 1 ? <button type="button" onClick={() => { setSubmittedError(''); setStep(value => Math.min(steps.length - 1, value + 1)); }} disabled={!canAdvance} className="opening-cta">Continuar <ArrowRight size={15} /></button> : <button type="submit" disabled={!canAdvance} className="opening-cta">Criar jogador <Check size={15} /></button>}
           </div>
         </form>
       </section>
