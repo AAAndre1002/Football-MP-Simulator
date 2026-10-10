@@ -11,10 +11,13 @@ const tactics: { id: TacticalStyle; name: string; detail: string }[] = [
 ];
 
 export function MatchCenter({
-  home, away, result, fixtureNumber, tacticalStyle, onTacticChange, onResult, onNextFixture,
+  home, away, result, fixtureNumber, clubId, playerId, initialFatigue, tacticalStyle, onTacticChange, onResult, onNextFixture,
 }: {
   home: Team;
   away: Team;
+  clubId: string;
+  playerId: string;
+  initialFatigue: number;
   result?: MatchResult;
   fixtureNumber: number;
   tacticalStyle: TacticalStyle;
@@ -27,7 +30,10 @@ export function MatchCenter({
     if (isPlaying || result) return;
     setIsPlaying(true);
     window.setTimeout(() => {
-      onResult(simulateMatch({ ...home, tacticalStyle }, away));
+      const userTeam = home.id === clubId ? { ...home, tacticalStyle } : { ...away, tacticalStyle };
+      const matchHome = home.id === clubId ? userTeam : home;
+      const matchAway = away.id === clubId ? userTeam : away;
+      onResult(simulateMatch(matchHome, matchAway, { initialFatigue: { [playerId]: initialFatigue } }));
       setIsPlaying(false);
     }, 350);
   };

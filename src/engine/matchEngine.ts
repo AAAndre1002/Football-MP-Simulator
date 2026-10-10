@@ -8,8 +8,8 @@ interface TeamState {
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 const mean = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 
-function setup(team: Team): TeamState {
-  const players = new Map(team.players.map(player => [player.id, { player, fatigue: 0, onPitch: false, sentOff: false }]));
+function setup(team: Team, initialFatigue: Record<string, number> = {}): TeamState {
+  const players = new Map(team.players.map(player => [player.id, { player, fatigue: clamp(initialFatigue[player.id] ?? 0, 0, 100), onPitch: false, sentOff: false }]));
   const starters = (team.startingXI.length ? team.startingXI : team.players.slice(0, 11).map(p => p.id)).filter(id => players.has(id));
   starters.forEach(id => { const state = players.get(id); if (state) state.onPitch = true; });
   return {
@@ -26,14 +26,14 @@ function attackPower(team: TeamState) {
   return mean(players.map(({ player }) => {
     const a = player.attributes;
     return (a.technical.passing + a.technical.shooting + a.technical.dribbling + a.technical.vision + a.mental.decisions) / 5;
-  })) * (1 - mean(players.map(p => p.fatigue)) / 250);
+  })) * (1 - mean(players.map(p => p.fatigue)) / 250) * (0.9 + (mean(players.map(p => p.player.morale ?? 60)) / 600));
 }
 function defencePower(team: TeamState) {
   const players = active(team);
   return mean(players.map(({ player }) => {
     const a = player.attributes;
     return (a.technical.tackling + a.mental.positioning + a.mental.decisions + a.physical.strength) / 4;
-  })) * (1 - mean(players.map(p => p.fatigue)) / 300);
+  })) * (1 - mean(players.map(p => p.fatigue)) / 300) * (0.9 + (mean(players.map(p => p.player.morale ?? 60)) / 600));
 }
 function styleBonus(team: Team) {
   switch (team.tacticalStyle) {
@@ -94,7 +94,9 @@ function attack(attacking: TeamState, defending: TeamState, minute: number, rand
   attacking.shotsOnTarget++;
   const goalChance = clamp(0.12 + (shooting - keeperRating(defending)) * 0.003, 0.04, 0.42);
   if (random() < goalChance) {
-    events.push({ minute, type: 'goal', teamId: attacking.team.id, playerId: shooter.player.id, playerName: shooter.player.name, description: `GOLO! ${shooter.player.name} marca para ${attacking.team.name}.` });
+    const helpers = candidates.filter(p => p.player.id !== shooter.player.id);
+    const assist = helpers.length && random() < 0.62 ? helpers[Math.floor(random() * helpers.length)] : undefined;
+    events.push({ minute, type: 'goal', teamId: attacking.team.id, playerId: shooter.player.id, playerName: shooter.player.name, assistPlayerId: assist?.player.id, assistPlayerName: assist?.player.name, description: `GOLO! ${shooter.player.name}${assist ? `, após assistência de ${assist.player.name},` : ''} marca para ${attacking.team.name}.` });
   } else {
     events.push({ minute, type: 'chance', teamId: attacking.team.id, playerId: shooter.player.id, playerName: shooter.player.name, description: `Remate de ${shooter.player.name}; o guarda-redes defende.` });
   }
@@ -105,7 +107,7 @@ export function simulateMatch(homeTeam: Team, awayTeam: Team, options: MatchSimu
   const duration = Math.max(1, Math.floor(options.duration ?? 90));
   const maxSubs = Math.max(0, Math.floor(options.maxSubstitutions ?? 5));
   const random = options.random ?? Math.random;
-  const home = setup(homeTeam); const away = setup(awayTeam);
+  const home = setup(homeTeam, options.initialFatigue); const away = setup(awayTeam, options.initialFatigue);
   const events: MatchEvent[] = [];
 
   for (let minute = 1; minute <= duration; minute++) {
@@ -129,7 +131,7 @@ export function simulateMatch(homeTeam: Team, awayTeam: Team, options: MatchSimu
   [home, away].forEach(team => team.players.forEach((state, id) => { playerFatigue[id] = Math.round(state.fatigue * 10) / 10; }));
 
   return {
-    matchId: `${homeTeam.id}-${awayTeam.id}-${Date.now()}`, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
+    matchId: options.matchId ?? `${homeTeam.id}-${awayTeam.id}-${Math.floor(random() * 1_000_000_000)}`, homeTeamId: homeTeam.id, awayTeamId: awayTeam.id,
     homeScore, awayScore, events,
     stats: { [homeTeam.id]: stats(home, Math.round(home.possessionTicks / totalPossession * 100)), [awayTeam.id]: stats(away, Math.round(away.possessionTicks / totalPossession * 100)) },
     playerFatigue,
