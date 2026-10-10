@@ -14,7 +14,7 @@ describe('offline JSON save portability', () => {
   });
   it('accepts backward-compatible raw saves but rejects malformed or future formats', () => {
     const legacy = { ...createFreshSave(), version: 1 };
-    expect(importCareerSave(JSON.stringify(legacy)).version).toBe(3);
+    expect(importCareerSave(JSON.stringify(legacy)).version).toBe(4);
     expect(() => importCareerSave('{oops')).toThrow(/JSON válido/);
     expect(() => importCareerSave(JSON.stringify({ format: 'football-mp-simulator-save', schemaVersion: 99, gameSave: legacy }))).toThrow(/não suportada/);
     expect(() => importCareerSave(JSON.stringify({ version: 3, week: 2 }))).toThrow(/jogador/);

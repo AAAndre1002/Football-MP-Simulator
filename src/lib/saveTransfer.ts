@@ -29,6 +29,6 @@ export function importCareerSave(text: string): GameSave {
   if (!candidate.player || typeof candidate.player !== 'object' || Array.isArray(candidate.player)) throw new Error('Save inválido: perfil de jogador em falta.');
   const player = candidate.player as Record<string, unknown>;
   if (typeof player.id !== 'string' || !player.id.trim() || typeof player.name !== 'string' || !player.name.trim() || !Number.isFinite(player.age) || !Number.isFinite(player.overall)) throw new Error('Save inválido: dados essenciais do jogador incompletos.');
-  if (candidate.version !== undefined && (!Number.isInteger(candidate.version) || Number(candidate.version) < 1 || Number(candidate.version) > 3)) throw new Error('Versão do save não suportada.');
+  if (candidate.version !== undefined && (!Number.isInteger(candidate.version) || Number(candidate.version) < 1 || Number(candidate.version) > 4)) throw new Error('Versão do save não suportada.');
   return normalizeGameSave(raw);
 }

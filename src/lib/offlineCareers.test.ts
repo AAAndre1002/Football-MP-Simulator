@@ -62,7 +62,7 @@ describe('offline career slots and save compatibility', () => {
     expect(normalized.player.potential).toBe(player.potential);
     expect(normalized.careerPathway?.offerId).toBe('portugal-offer-2');
     const legacy = normalizeGameSave({ version: 1, week: 4, player: { ...createFreshSave().player, name: 'Legacy Player' } });
-    expect(legacy.version).toBe(3);
+    expect(legacy.version).toBe(4);
     expect(legacy.week).toBe(4);
     expect(legacy.player.name).toBe('Legacy Player');
     expect(legacy.academyDevelopment).toBeUndefined();
