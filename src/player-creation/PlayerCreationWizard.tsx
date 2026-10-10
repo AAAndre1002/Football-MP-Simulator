@@ -49,7 +49,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
   const completeCreation = () => { setSubmittedError('HANDLER_REACHED');
     const issue = submitPlayerCreation(input, created => { setSubmittedError('CALLBACK_REACHED');; onComplete(created); });
     if (issue) { setSubmittedError(issue); return; }
-    setSubmittedError('');
+    setSubmittedError('HELPER_RETURNED');
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
