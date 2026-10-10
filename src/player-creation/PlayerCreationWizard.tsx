@@ -47,7 +47,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     return { ...current, secondaryPositions: selected };
   });
   const completeCreation = () => { setSubmittedError('HANDLER_REACHED');
-    const issue = submitPlayerCreation(input, created => { setSubmittedError('CALLBACK_REACHED');; onComplete(created); });
+    let issue: string | null = null;     try {       issue = submitPlayerCreation(input, created => { setSubmittedError('CALLBACK_REACHED'); onComplete(created); });     } catch (error) {       setSubmittedError(`THREW: ${error instanceof Error ? error.message : String(error)}`);       return;     }
     if (issue) { setSubmittedError(issue); return; }
     setSubmittedError('HELPER_RETURNED');
   };
