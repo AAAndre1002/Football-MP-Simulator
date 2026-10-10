@@ -4,7 +4,7 @@ import { createPlayer, DEFAULT_CREATION } from '../player-creation/playerCreatio
 import { playerClub } from '../data/mockTeams';
 import { academyEntryPlayerSlot } from './academyDevelopment';
 
-const player = createPlayer({ ...DEFAULT_CREATION, name: 'Alex Example', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Feira' }, 'academy-test').player;
+const player = createPlayer({ ...DEFAULT_CREATION, name: 'Alex Example', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Santa Maria da Feira' }, 'academy-test').player;
 
 describe('academy chapter choices', () => {
   it('applies visible, bounded and balanced effects in persistent player fields', () => {
