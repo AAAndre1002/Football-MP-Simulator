@@ -39,4 +39,15 @@ describe('potential save compatibility', () => {
     expect(restored.player.potentialTrend).toBe(1);
     expect(restored.career.matchHistory[0].minutes).toBe(82);
   });
+
+  it('round-trips the last training summary and sanitizes invalid stored fields', () => {
+    const save = createFreshSave();
+    save.lastTraining = { week: 1, focus: 'shooting', intensity: 'high', previousValue: 52.4, currentValue: 53.1, attributeGain: 0.7, fatigueChange: 19, injuryName: 'Sobrecarga' };
+    const restored = normalizeGameSave(JSON.parse(JSON.stringify(save)));
+    expect(restored.lastTraining).toEqual(save.lastTraining);
+    const invalid = normalizeGameSave({ ...save, lastTraining: { ...save.lastTraining, focus: 'not-a-focus', previousValue: 800 } });
+    expect(invalid.lastTraining).toBeUndefined();
+    const sanitized = normalizeGameSave({ ...save, lastTraining: { ...save.lastTraining, previousValue: 180, currentValue: -4, attributeGain: 99, fatigueChange: -200 } });
+    expect(sanitized.lastTraining).toMatchObject({ previousValue: 100, currentValue: 0, attributeGain: 20, fatigueChange: -100 });
+  });
 });

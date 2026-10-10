@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { CareerStats, Fixture, GameSave, InjuryStatus, MatchEvent, MatchResult, Player, PlayerAttributes, PendingPress, PressHistoryEntry, RecoveryAsset, SponsorOffer, TacticalStyle, TrainingFocus, TransferOffer } from '../types';
+import type { CareerStats, Fixture, GameSave, InjuryStatus, MatchEvent, MatchResult, Player, PlayerAttributes, PendingPress, PressHistoryEntry, RecoveryAsset, SponsorOffer, TacticalStyle, TrainingFocus, TrainingSummary, TransferOffer } from '../types';
 import { emptyLeagueTable, leagueTeams, makeFixtures, playerCharacter, playerClub } from '../data/mockTeams';
 import { tableFromFixtures, seededRandom } from '../engine/season';
 import { applyTraining, calculateMarketValue, recordMarketValuePoint, remainingContractYears, type TrainingIntensity } from '../engine/playerDevelopment';
@@ -9,6 +9,11 @@ const STORAGE_KEY = 'football-mp-simulator-save-v1';
 const clamp = (n: unknown, min: number, max: number, fallback: number) => typeof n === 'number' && Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 const allowedTactics: TacticalStyle[] = ['balanced', 'possession', 'counterAttack', 'highPress'];
 const allFocuses: TrainingFocus[] = ['passing', 'shooting', 'dribbling', 'tackling', 'vision', 'ballControl', 'pace', 'acceleration', 'stamina', 'strength', 'agility', 'decisions', 'positioning', 'teamwork', 'composure', 'leadership'];
+function trainingValue(player: Player, focus: TrainingFocus): number {
+  if (focus in player.attributes.technical) return player.attributes.technical[focus as keyof PlayerAttributes['technical']];
+  if (focus in player.attributes.physical) return player.attributes.physical[focus as keyof PlayerAttributes['physical']];
+  return player.attributes.mental[focus as keyof PlayerAttributes['mental']];
+}
 function attributesFrom(input?: PlayerAttributes): PlayerAttributes {
   const def = playerCharacter.attributes; const a = input && typeof input === 'object' ? input : def;
   const group = <K extends keyof PlayerAttributes>(key: K): PlayerAttributes[K] => {
@@ -87,6 +92,11 @@ export function normalizeGameSave(value: unknown): GameSave {
   const injuries: InjuryStatus[] = Array.isArray(raw.injuries) ? raw.injuries.slice(0, 10).filter(i => i && typeof i.id === 'string').map(i => ({ id: i.id.slice(0, 80), name: typeof i.name === 'string' ? i.name.slice(0, 80) : 'Lesão', severity: ['minor','moderate','serious'].includes(i.severity) ? i.severity : 'minor', weeksRemaining: clamp(i.weeksRemaining, 0, 24, 0), occurredWeek: clamp(i.occurredWeek, 1, 10000, 1) })) : [];
   const pressHistory: PressHistoryEntry[] = Array.isArray(raw.pressHistory) ? raw.pressHistory.slice(-30).filter(p => p && typeof p.opponent === 'string').map(p => ({ week: clamp(p.week, 1, 10000, 1), opponent: p.opponent.slice(0, 80), answer: ['team_first','confident','humble'].includes(p.answer) ? p.answer : 'team_first', headline: typeof p.headline === 'string' ? p.headline.slice(0, 200) : '' })) : [];
   const pendingPress: PendingPress | undefined = raw.pendingPress && typeof raw.pendingPress.opponent === 'string' ? { id: String(raw.pendingPress.id).slice(0, 100), week: clamp(raw.pendingPress.week, 1, 10000, 1), opponent: raw.pendingPress.opponent.slice(0, 80), score: String(raw.pendingPress.score).slice(0, 20), outcome: ['win','draw','loss'].includes(raw.pendingPress.outcome) ? raw.pendingPress.outcome : 'draw', rating: clamp(raw.pendingPress.rating, 0, 10, 6) } : undefined;
+  const trainingRaw = raw.lastTraining as Partial<TrainingSummary> | undefined;
+  const validIntensity = trainingRaw && ['recovery','balanced','high'].includes(trainingRaw.intensity ?? '');
+  const lastTraining: TrainingSummary | undefined = trainingRaw && validIntensity && allFocuses.includes(trainingRaw.focus as TrainingFocus)
+    ? { week: clamp(trainingRaw.week, 1, 10000, 1), focus: trainingRaw.focus as TrainingFocus, intensity: trainingRaw.intensity as TrainingSummary['intensity'], previousValue: clamp(trainingRaw.previousValue, 0, 100, 0), currentValue: clamp(trainingRaw.currentValue, 0, 100, 0), attributeGain: clamp(trainingRaw.attributeGain, 0, 20, 0), fatigueChange: clamp(trainingRaw.fatigueChange, -100, 100, 0), ...(typeof trainingRaw.injuryName === 'string' ? { injuryName: trainingRaw.injuryName.slice(0, 80) } : {}) }
+    : undefined;
   const recoveryAssets = Array.isArray(raw.recoveryAssets) ? raw.recoveryAssets.filter((asset): asset is RecoveryAsset => asset === 'recoveryBoots' || asset === 'personalTrainer') : [];
   const academyRaw = raw.academyDevelopment;
   const academyDevelopment = academyRaw && academyRaw.completed === true && Array.isArray(academyRaw.choices) && academyRaw.choices.length === 3
@@ -105,7 +115,7 @@ export function normalizeGameSave(value: unknown): GameSave {
     trainedThisWeek: raw.trainedThisWeek === true, matchPlayedThisWeek: raw.matchPlayedThisWeek === true && fixtures.some(f => f.week === clamp(raw.week, 1, 10, 1) && !!f.result),
     playedMatches: clamp(raw.playedMatches, 0, 10000, 0), agentHired: raw.agentHired === true, fixtures,
     leagueTable: tableFromFixtures(leagueTeams, fixtures), career, transferOffers: offers as TransferOffer[], sponsorships: sponsors as SponsorOffer[],
-    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true, academyDevelopment, careerPathway };
+    offersGeneratedWeek: clamp(raw.offersGeneratedWeek, 0, 10000, 0), sponsorOffersGeneratedWeek: clamp(raw.sponsorOffersGeneratedWeek, 0, 10000, 0), contractActionSeason: clamp(raw.contractActionSeason, 0, 999, 0), injuries, pendingPress, pressHistory, recoveryAssets, personalTrainer: raw.personalTrainer === true, lastTraining, academyDevelopment, careerPathway };
 }
 export function useGameState(initialSave?: GameSave, persistLocally = true) {
   const [save, setSave] = useState<GameSave>(() => {
@@ -116,12 +126,15 @@ export function useGameState(initialSave?: GameSave, persistLocally = true) {
   const train = (intensity: TrainingIntensity = 'balanced') => setSave(current => {
     const cost = intensity === 'high' ? 180 : intensity === 'recovery' ? 80 : 120;
     if (current.trainedThisWeek || current.balance < cost || (current.injuries ?? []).some(injury => injury.weeksRemaining > 0)) return current;
+    const previousValue = trainingValue(current.player, current.trainingFocus);
     const result = applyTraining({ player: current.player, focus: current.trainingFocus, intensity, fatigue: current.career.fatigue, week: current.week, personalTrainer: current.personalTrainer || current.recoveryAssets?.includes('personalTrainer'), random: seededRandom(`training:${current.season}:${current.week}:${current.player.id}:${current.trainingFocus}:${intensity}`) });
+    const currentValue = trainingValue(result.player, current.trainingFocus);
+    const trainingSummary: TrainingSummary = { week: current.week, focus: current.trainingFocus, intensity, previousValue, currentValue, attributeGain: Math.round((currentValue - previousValue) * 10) / 10, fatigueChange: Math.round((result.fatigue - current.career.fatigue) * 10) / 10, ...(result.injury ? { injuryName: result.injury.name } : {}) };
     const priorPotential = current.player.potential ?? current.player.overall;
     const trainedPlayer: Player = { ...result.player, potential: Math.min(100, Math.max(result.player.overall, priorPotential)), initialPotential: current.player.initialPotential ?? priorPotential, potentialMomentum: current.player.potentialMomentum ?? 0, potentialTrend: Math.min(100, Math.max(result.player.overall, priorPotential)) > priorPotential ? 1 : current.player.potentialTrend ?? 0 };
     const marketValue = calculateMarketValue(trainedPlayer, current.career.matchHistory.map(entry => entry.rating), { appearances: current.career.appearances, totalMinutes: current.career.totalMinutes, goals: current.career.goals, assists: current.career.assists, contractYearsRemaining: remainingContractYears(trainedPlayer, current.season, current.week) });
     const injuryList = result.injury ? [...(current.injuries ?? []), result.injury] : current.injuries ?? [];
-    return { ...current, player: { ...trainedPlayer, marketValue }, career: { ...current.career, fatigue: result.fatigue, marketValueHistory: recordMarketValuePoint(current.career.marketValueHistory, current.week, marketValue), overallHistory: [...(current.career.overallHistory ?? []), { week: current.week, value: result.player.overall }].slice(-30) }, injuries: injuryList, trainedThisWeek: true, balance: current.balance - cost };
+    return { ...current, player: { ...trainedPlayer, marketValue }, career: { ...current.career, fatigue: result.fatigue, marketValueHistory: recordMarketValuePoint(current.career.marketValueHistory, current.week, marketValue), overallHistory: [...(current.career.overallHistory ?? []), { week: current.week, value: result.player.overall }].slice(-30) }, injuries: injuryList, lastTraining: trainingSummary, trainedThisWeek: true, balance: current.balance - cost };
   });
   const reset = () => { try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } setSave(freshSave()); };
   return { save, setSave, train, reset };
