@@ -4,7 +4,7 @@ import {
   calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isPortugueseMunicipalityValid, profileForRole,
   rolesForPosition, validateCreation, type PlayerCreationInput,
 } from './playerCreation';
-import { COUNTRY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
+import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
 
 function validInput(overrides: Partial<PlayerCreationInput> = {}): PlayerCreationInput {
   return {
@@ -82,6 +82,9 @@ describe('validated nationality and birthplace catalogues', () => {
   it('offers ISO-coded country choices and the official Portuguese municipality set', () => {
     expect(COUNTRY_OPTIONS.length).toBeGreaterThan(250);
     expect(new Set(COUNTRY_OPTIONS.map(country => country.code)).size).toBe(COUNTRY_OPTIONS.length);
+    expect(COUNTRY_OPTIONS.some(country => country.code === 'AQ')).toBe(true);
+    expect(NATIONALITY_OPTIONS.some(country => ['AQ','BV','GS','HM','IO','SJ','TF','UM'].includes(country.code))).toBe(false);
+    expect(validateCreation(validInput({ nationality: 'Antártida' })).some(error => error.includes('nacionalidade'))).toBe(true);
     expect(PORTUGAL_REGIONS.reduce((total, region) => total + region.municipalities.length, 0)).toBe(308);
     expect(isPortugueseMunicipalityValid('Aveiro', 'Santa Maria da Feira')).toBe(true);
     expect(isPortugueseMunicipalityValid('Porto', 'Santa Maria da Feira')).toBe(false);

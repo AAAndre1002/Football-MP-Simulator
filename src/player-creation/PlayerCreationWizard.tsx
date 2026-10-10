@@ -3,10 +3,10 @@ import { ArrowLeft, ArrowRight, Check, Shield, UserRound, SlidersHorizontal, Spa
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import {
   CAREER_SEASON, DEFAULT_CREATION, EYE_COLORS, HAIR_COLORS, HAIR_STYLES, POSITIONS,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isCountryNameValid, isPortugueseMunicipalityValid, profileForRole, rolesForPosition, validateCreation,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isNationalityValid, isPortugueseMunicipalityValid, profileForRole, rolesForPosition, validateCreation,
   type CreatedPlayer, type FlatAttribute, type PlayerCreationInput,
 } from './playerCreation';
-import { COUNTRY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
+import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
 
 const steps = [
   { title: 'Identidade', icon: UserRound, hint: 'Nome, nacionalidade por bandeira e naturalidade validada.' },
@@ -41,9 +41,9 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
   const errors = useMemo(() => validateCreation(input), [input]);
   const visibleCountries = useMemo(() => {
     const query = nationalitySearch.trim().toLocaleLowerCase('pt-PT');
-    return query ? COUNTRY_OPTIONS.filter(country => country.name.toLocaleLowerCase('pt-PT').includes(query)) : COUNTRY_OPTIONS;
+    return query ? NATIONALITY_OPTIONS.filter(country => country.name.toLocaleLowerCase('pt-PT').includes(query)) : NATIONALITY_OPTIONS;
   }, [nationalitySearch]);
-  const selectedNationality = COUNTRY_OPTIONS.find(country => country.name === input.nationality);
+  const selectedNationality = NATIONALITY_OPTIONS.find(country => country.name === input.nationality);
   const birthCountryOption = COUNTRY_OPTIONS.find(country => country.name === input.birthCountry);
   const bornInPortugal = birthCountryOption?.code === 'PT';
   const availableMunicipalities = PORTUGAL_REGIONS.find(region => region.name === input.birthRegion)?.municipalities ?? [];
@@ -84,7 +84,7 @@ export function PlayerCreationWizard({ onComplete, onCancel, initialValues }: Pl
     ? isPortugueseMunicipalityValid(input.birthRegion, input.birthCity)
     : !!birthCountryOption && !input.birthRegion && !input.birthCity;
   const canAdvance = step === 0
-    ? !!input.name.trim() && isCountryNameValid(input.nationality) && !!birthCountryOption && birthplaceValid
+    ? !!input.name.trim() && isNationalityValid(input.nationality) && !!birthCountryOption && birthplaceValid
     : step === 1 ? input.heightCm >= 140 && input.heightCm <= 220 && input.weightKg >= 40 && input.weightKg <= 130
       : step === 2 ? rolesForPosition(input.primaryPosition).some(item => item.id === input.roleId)
         : errors.length === 0;

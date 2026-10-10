@@ -599,7 +599,7 @@ export const COUNTRY_OPTIONS: readonly CountryOption[] = [
   {
     "code": "GB-NIR",
     "name": "Irlanda do Norte",
-    "flag": "🏴󠁧󠁢󠁮󠁩󠁲󠁿"
+    "flag": "🇬🇧"
   },
   {
     "code": "IR",
@@ -1272,6 +1272,11 @@ export const COUNTRY_OPTIONS: readonly CountryOption[] = [
     "flag": "🇮🇳"
   }
 ] as const;
+
+// Exclude places with no permanent civilian population from playable nationalities,
+// while keeping them in the birthplace country catalogue where appropriate.
+const NON_NATIONALITY_AREAS = new Set(['AQ', 'BV', 'GS', 'HM', 'IO', 'SJ', 'TF', 'UM']);
+export const NATIONALITY_OPTIONS: readonly CountryOption[] = COUNTRY_OPTIONS.filter(country => !NON_NATIONALITY_AREAS.has(country.code));
 
 // Portuguese municipal names grouped by district/autonomous region from DGAL’s official municipalities spreadsheet.
 export interface PortugalRegion { name: string; municipalities: readonly string[]; }

@@ -1,5 +1,5 @@
 import type { Player, PlayerAttributes, PlayerPosition } from '../types';
-import { COUNTRY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
+import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
 
 export const CAREER_SEASON = '2026/27';
 export const STARTING_AGE = 16;
@@ -97,14 +97,14 @@ export function calculatePotential(overall: number, roleId: string, position: Pl
   return Math.min(100, Math.max(overall, overall + 10 + selected.potentialBonus));
 }
 export const clampAttribute = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
-export function isCountryNameValid(name: string): boolean { return COUNTRY_OPTIONS.some(country => country.name === name); }
+export function isNationalityValid(name: string): boolean { return NATIONALITY_OPTIONS.some(country => country.name === name); }
 export function isPortugueseMunicipalityValid(regionName: string, municipality: string): boolean {
   return PORTUGAL_REGIONS.some(region => region.name === regionName && region.municipalities.includes(municipality));
 }
 export function validateCreation(input: PlayerCreationInput): string[] {
   const errors: string[] = [];
   if (!input.name.trim() || input.name.trim().length > 60) errors.push('Indica um nome com 1 a 60 caracteres.');
-  if (!isCountryNameValid(input.nationality)) errors.push('Escolhe uma nacionalidade da lista de países disponível.');
+  if (!isNationalityValid(input.nationality)) errors.push('Escolhe uma nacionalidade da lista disponível.');
   const birthCountry = COUNTRY_OPTIONS.find(country => country.name === input.birthCountry);
   if (!birthCountry) errors.push('Escolhe o país de nascimento da lista disponível.');
   else if (birthCountry.code === 'PT') {
