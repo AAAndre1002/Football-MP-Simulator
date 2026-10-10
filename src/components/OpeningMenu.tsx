@@ -1,9 +1,19 @@
-import { useState, type FormEvent } from 'react';
-import { ArrowRight, BadgeCheck, CircleUserRound, Cloud, Eye, EyeOff, Gamepad2, KeyRound, LogOut, Mail, Plus, ShieldCheck, Trash2, Trophy } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
+import { ArrowRight, BadgeCheck, CircleUserRound, Cloud, Download, Eye, EyeOff, Gamepad2, KeyRound, LogOut, Mail, Pencil, Plus, ShieldCheck, Trash2, Trophy, Upload } from 'lucide-react';
 import type { CareerSaveSlot } from '../hooks/useCareerSaves';
 import { submitNewPassword } from '../lib/passwordRecovery';
+import { exportCareerSave } from '../lib/saveTransfer';
 
+export interface OfflineCareerSlot { id: string; name: string; saveData: import('../types').GameSave; updatedAt: string; }
 interface OpeningMenuProps {
+  offlineSaves: OfflineCareerSlot[];
+  onOpenOfflineSave: (slot: OfflineCareerSlot) => void;
+  onCreateOfflineCareer: () => void;
+  onDeleteOfflineSave: (id: string) => void;
+  onRenameOfflineSave: (id: string, name: string) => void;
+  onImportOfflineSave: (text: string, name: string) => Promise<void>;
+  onRenameSlot: (id: string, name: string) => Promise<void>;
+  onImportCloudSave: (text: string, name: string) => Promise<void>;
   authConfigured: boolean;
   authLoading: boolean;
   userName?: string;
@@ -42,6 +52,10 @@ export function OpeningMenu(props: OpeningMenuProps) {
   const [error, setError] = useState('');
   const [newSaveName, setNewSaveName] = useState('A minha carreira');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [offlineError, setOfflineError] = useState('');
+  const [cloudError, setCloudError] = useState('');
+  const importInput = useRef<HTMLInputElement>(null);
+  const cloudImportInput = useRef<HTMLInputElement>(null);
 
   const changeMode = (mode: AuthMode) => { setAuthMode(mode); setMessage(''); setError(''); };
   const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
@@ -83,10 +97,34 @@ export function OpeningMenu(props: OpeningMenuProps) {
     catch (reason) { setError(friendlyError(reason)); }
     finally { setBusy(false); }
   };
+  const downloadSave = (saveData: import('../types').GameSave, name: string) => {
+    const blob = new Blob([exportCareerSave(saveData)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${name.replace(/[^\p{L}\p{N}-]+/gu, '-')}.json`; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const exportOffline = (slot: OfflineCareerSlot) => downloadSave(slot.saveData, slot.name);
+  const exportCloud = (slot: CareerSaveSlot) => downloadSave(slot.saveData, slot.name);
+  const handleOfflineImport = async (file?: File) => {
+    if (!file) return;
+    setOfflineError(''); setBusy(true);
+    try { await props.onImportOfflineSave(await file.text(), file.name.replace(/\.json$/i, '').slice(0, 40)); setMessage('Carreira offline importada neste dispositivo.'); }
+    catch (reason) { setOfflineError(friendlyError(reason)); }
+    finally { setBusy(false); if (importInput.current) importInput.current.value = ''; }
+  };
+  const renderOfflineSlot = (slot: OfflineCareerSlot) => <div key={slot.id} className="opening-slot"><button onClick={() => props.onOpenOfflineSave(slot)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold">{slot.name}</span><span className="mt-1 block text-[11px] text-neutral-500">Época {slot.saveData.season} · Jornada {slot.saveData.week}</span></button><div className="flex shrink-0 items-center"><button aria-label={`Exportar ${slot.name}`} title="Exportar ficheiro JSON offline" onClick={() => exportOffline(slot)} className="rounded-lg p-2 text-neutral-500 hover:text-yellow-200"><Download size={14}/></button><button aria-label={`Renomear ${slot.name}`} title="Renomear" onClick={() => { const next = window.prompt('Novo nome da carreira', slot.name); if (next?.trim()) props.onRenameOfflineSave(slot.id, next); }} className="rounded-lg p-2 text-neutral-500 hover:text-yellow-200"><Pencil size={14}/></button><button aria-label={`Apagar ${slot.name}`} title="Apagar" onClick={() => { if (window.confirm(`Apagar a carreira offline “${slot.name}”?`)) props.onDeleteOfflineSave(slot.id); }} className="rounded-lg p-2 text-neutral-500 hover:text-red-300"><Trash2 size={14}/></button></div></div>;
+  const handleCloudImport = async (file?: File) => {
+    if (!file) return;
+    setCloudError(''); setBusy(true);
+    try { await props.onImportCloudSave(await file.text(), file.name.replace(/\.json$/i, '').slice(0, 40)); setMessage('Save importado para a nuvem da conta ligada.'); }
+    catch (reason) { setCloudError(friendlyError(reason)); }
+    finally { setBusy(false); if (cloudImportInput.current) cloudImportInput.current.value = ''; }
+  };
 
   return (
     <main className="opening-screen relative min-h-screen overflow-hidden bg-black text-white">
       <div className="stadium-glow" aria-hidden="true" />
+      <input ref={importInput} type="file" accept="application/json,.json" className="sr-only" aria-label="Importar save offline JSON" onChange={event => { void handleOfflineImport(event.target.files?.[0]); }} />
+      <input ref={cloudImportInput} type="file" accept="application/json,.json" className="sr-only" aria-label="Importar save cloud JSON" onChange={event => { void handleCloudImport(event.target.files?.[0]); }} />
       <header className="relative z-10 border-b border-white/[.08]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-2.5"><div className="opening-mark"><Trophy size={17} /></div><div><p className="opening-brand">FOOTBALL <span>MP</span></p><p className="opening-micro">CAREER MODE · 2026/27</p></div></div>
@@ -102,6 +140,7 @@ export function OpeningMenu(props: OpeningMenuProps) {
         </section>
 
         <section className="opening-card">
+          {message && !authMode && !props.passwordRecoveryRequired && !props.passwordRecoverySuccess && <p role="status" className="mb-4 rounded-lg border border-yellow-300/20 bg-yellow-300/[.07] p-3 text-sm text-yellow-100">{message}</p>}
           {props.passwordRecoveryRequired ? (
             <>
               <div className="mb-5 flex items-center justify-between gap-3"><div><p className="opening-eyebrow small"><span /> RECUPERAÇÃO DE CONTA</p><h2 className="mt-2 text-xl font-bold tracking-tight">Escolhe uma nova palavra-passe</h2></div><div className="opening-card-icon"><KeyRound size={19} /></div></div>
@@ -132,6 +171,8 @@ export function OpeningMenu(props: OpeningMenuProps) {
                   <div className="opening-divider"><span>OU</span></div>
                   <button onClick={() => props.onStartGuest(false)} className="opening-cta"><Gamepad2 size={17} /> JOGAR OFFLINE <ArrowRight size={16} /></button>
                   <p className="mt-3 flex items-center justify-center gap-2 text-[11px] text-neutral-500"><Cloud size={13} className={props.authConfigured ? 'text-yellow-300' : 'text-neutral-600'} />{props.authConfigured ? 'Os teus saves acompanham a tua conta' : 'Sem conta online · progresso guardado neste dispositivo'}</p>
+                  <button onClick={props.onCreateOfflineCareer} className="mt-4 w-full rounded-lg border border-yellow-300/20 bg-yellow-300/[.04] px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-yellow-100 hover:border-yellow-300/40"><Plus size={15} className="mr-2 inline" /> Nova carreira offline</button><button type="button" onClick={() => importInput.current?.click()} disabled={busy} className="mt-2 w-full rounded-lg border border-white/10 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-neutral-300 hover:border-white/20"><Upload size={14} className="mr-2 inline"/> Importar save offline JSON</button>{offlineError && <p role="alert" className="mt-2 text-xs text-red-200">{offlineError}</p>}
+                  {props.offlineSaves.length > 0 && <div className="mt-4 space-y-2"><p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Carreiras offline criadas</p>{props.offlineSaves.map(renderOfflineSlot)}</div>}
                 </>
               ) : (
                 <form onSubmit={submitAuth} className="space-y-3.5">
@@ -150,11 +191,14 @@ export function OpeningMenu(props: OpeningMenuProps) {
           ) : (
             <>
               <div className="flex items-start justify-between gap-4"><div><p className="opening-eyebrow small"><span /> CONTA LIGADA</p><h2 className="mt-2 text-xl font-bold">Olá, {props.userName || 'jogador'}.</h2><p className="mt-1 text-sm text-neutral-400">{props.userEmail}</p></div><button title="Terminar sessão" onClick={() => void signOut()} disabled={busy} className="rounded-lg border border-white/10 p-2 text-neutral-400 hover:border-yellow-300/30 hover:text-yellow-200"><LogOut size={16} /></button></div>
-              <div className="mt-6 flex items-center justify-between"><h3 className="text-sm font-bold uppercase tracking-wider">Carreiras guardadas</h3><span className="opening-count">{props.slots.length}/5 SLOTS</span></div>
-              {props.slotsLoading ? <div className="py-8 text-center text-sm text-neutral-400">A carregar os teus saves…</div> : props.slots.length ? <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">{props.slots.map(slot => <div key={slot.id} className="opening-slot"><button onClick={() => props.onOpenSlot(slot)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold">{slot.name}</span><span className="mt-1 block text-[11px] uppercase tracking-wide text-neutral-500">Época {slot.saveData.season} · Jornada {slot.saveData.week} · {dateLabel(slot.updatedAt)}</span></button><button aria-label={`Apagar ${slot.name}`} onClick={() => { if (window.confirm(`Apagar a carreira “${slot.name}”?`)) { setDeletingId(slot.id); void props.onDeleteSlot(slot.id).finally(() => setDeletingId(null)); } }} className="rounded-lg p-2 text-neutral-500 hover:bg-red-400/10 hover:text-red-300">{deletingId === slot.id ? '…' : <Trash2 size={15} />}</button></div>)}</div> : <div className="mt-3 rounded-xl border border-dashed border-white/10 p-5 text-center"><p className="text-sm text-neutral-300">Ainda não tens saves na nuvem.</p><p className="mt-1 text-xs text-neutral-500">Cria uma carreira para começar.</p></div>}
+              <div className="mt-6 flex items-center justify-between"><h3 className="text-sm font-bold uppercase tracking-wider">Carreiras na nuvem</h3><span className="opening-count">{props.slots.length}/5 SLOTS</span></div>
+              {props.slotsLoading ? <div className="py-8 text-center text-sm text-neutral-400">A carregar os teus saves…</div> : props.slots.length ? <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">{props.slots.map(slot => <div key={slot.id} className="opening-slot"><button onClick={() => props.onOpenSlot(slot)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-bold">{slot.name}</span><span className="mt-1 block text-[11px] uppercase tracking-wide text-neutral-500">Época {slot.saveData.season} · Jornada {slot.saveData.week} · {dateLabel(slot.updatedAt)}</span></button><button aria-label={`Exportar ${slot.name}`} title="Exportar save da nuvem" onClick={() => exportCloud(slot)} className="rounded-lg p-2 text-neutral-500 hover:text-yellow-200"><Download size={14}/></button><button aria-label={`Renomear ${slot.name}`} title="Renomear carreira na nuvem" onClick={() => { const name = window.prompt('Novo nome da carreira', slot.name); if (name?.trim()) void props.onRenameSlot(slot.id, name).catch(reason => setError(friendlyError(reason))); }} className="rounded-lg p-2 text-neutral-500 hover:text-yellow-200"><Pencil size={14}/></button><button aria-label={`Apagar ${slot.name}`} onClick={() => { if (window.confirm(`Apagar a carreira “${slot.name}”?`)) { setDeletingId(slot.id); void props.onDeleteSlot(slot.id).catch(reason => setError(friendlyError(reason))).finally(() => setDeletingId(null)); } }} className="rounded-lg p-2 text-neutral-500 hover:bg-red-400/10 hover:text-red-300">{deletingId === slot.id ? '…' : <Trash2 size={15} />}</button></div>)}</div> : <div className="mt-3 rounded-xl border border-dashed border-white/10 p-5 text-center"><p className="text-sm text-neutral-300">Ainda não tens saves na nuvem.</p><p className="mt-1 text-xs text-neutral-500">Cria uma carreira para começar.</p></div>}
               {props.slotsError && <p role="alert" className="mt-3 rounded-lg border border-red-400/20 bg-red-400/[.07] p-3 text-xs text-red-200">{props.slotsError}</p>}
-              <div className="mt-4 flex gap-2"><input value={newSaveName} onChange={e => setNewSaveName(e.target.value)} maxLength={40} className="field-input min-w-0 flex-1" aria-label="Nome da nova carreira" /><button onClick={() => void createSave()} disabled={busy || props.slots.length >= 5 || !newSaveName.trim()} className="opening-cta shrink-0"><Plus size={16} /> NOVA</button></div>
+              <button type="button" onClick={() => cloudImportInput.current?.click()} disabled={busy || props.slotsLoading || props.slots.length >= 5} className="mt-3 w-full rounded-lg border border-white/10 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-neutral-300 hover:border-white/20 disabled:opacity-40"><Upload size={14} className="mr-2 inline"/> Importar ficheiro para a nuvem</button>{cloudError && <p role="alert" className="mt-2 text-xs text-red-200">{cloudError}</p>}
+              <div className="mt-4 flex gap-2"><input value={newSaveName} onChange={e => setNewSaveName(e.target.value)} maxLength={40} className="field-input min-w-0 flex-1" aria-label="Nome da nova carreira" /><button onClick={() => void createSave()} disabled={busy || props.slotsLoading || props.slots.length >= 5 || !newSaveName.trim()} className="opening-cta shrink-0"><Plus size={16} /> NOVA</button></div>
               <button onClick={() => props.onStartGuest(false)} className="mt-4 w-full text-[11px] uppercase tracking-wider text-neutral-500 hover:text-white">Jogar offline neste dispositivo</button>
+              <button onClick={props.onCreateOfflineCareer} className="mt-3 w-full rounded-lg border border-yellow-300/20 bg-yellow-300/[.04] px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-yellow-100 hover:border-yellow-300/40"><Plus size={15} className="mr-2 inline" /> Nova carreira offline</button>
+              {props.offlineSaves.length > 0 && <div className="mt-4 space-y-2"><p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Carreiras offline criadas</p>{props.offlineSaves.map(renderOfflineSlot)}</div>}
             </>
           )}
         </section>
