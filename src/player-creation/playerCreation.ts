@@ -120,7 +120,7 @@ function toPlayerAttributes(values: AttributeProfile): PlayerAttributes {
     ...(values.gkReflexes > 15 || values.gkHandling > 15 || values.gkPositioning > 15 ? { goalkeeping: { reflexes: values.gkReflexes, handling: values.gkHandling, positioning: values.gkPositioning } } : {}),
   };
 }
-export function createPlayer(input: PlayerCreationInput, id = `player-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`): CreatedPlayer {
+export function createPlayer(input: PlayerCreationInput, id = `player-${typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function' ? globalThis.crypto.randomUUID() : Date.now() ?? Date.now()}`): CreatedPlayer {
   const errors = validateCreation(input);
   if (errors.length) throw new Error(errors.join(' '));
   const selected = rolesForPosition(input.primaryPosition).find(item => item.id === input.roleId)!;
