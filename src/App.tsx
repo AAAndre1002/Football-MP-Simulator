@@ -9,6 +9,7 @@ import { SeasonCenter } from './components/SeasonCenter';
 import { useGameState } from './hooks/useGameState';
 import { leagueTeams, makeFixtures } from './data/mockTeams';
 import { seededRandom, settleRound, tableFromFixtures } from './engine/season';
+import { canAdvanceWeek, nextSeasonWeek, weekProgressionBlock } from './engine/weekProgression';
 import { simulateMatch } from './engine/matchEngine';
 import { checkMatchInjury, calculateMarketValue, recordMarketValuePoint, remainingContractYears, recoverFatigue, recoverInjuries } from './engine/playerDevelopment';
 import { generateTransferOffers, counterOffer, contractFromOffer } from './engine/transferMarket';
@@ -97,7 +98,7 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     return { ...currentSave, fixtures, leagueTable: tableFromFixtures(matchTeams, fixtures), player: marketPlayer, career: { ...career, marketValueHistory: marketHistory }, injuries, pendingPress, lastMatch: safeResult, matchPlayedThisWeek: true, playedMatches: currentSave.playedMatches + (playedMinutes ? 1 : 0), balance: currentSave.balance + matchBonus + wageBonuses };
   });
   const advance = () => setSave(currentSave => {
-    if (!currentSave.matchPlayedThisWeek) return currentSave;
+    if (!canAdvanceWeek(currentSave)) return currentSave;
     const sponsorships: SponsorOffer[] = currentSave.sponsorships.map(s => s.status === 'active' && s.weeksRemaining > 0 ? { ...s, weeksRemaining: s.weeksRemaining - 1, status: s.weeksRemaining === 1 ? 'expired' : 'active' } : s);
     const sponsorPay = currentSave.sponsorships.filter(s => s.status === 'active' && s.weeksRemaining > 0).reduce((total, s) => total + s.weeklyIncome, 0);
     const wage = currentSave.player.contract?.weeklyWage ?? 0;
@@ -108,8 +109,9 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     const injuries = recoverInjuries(currentSave.injuries ?? []);
     const career = { ...currentSave.career, fatigue };
     const common = { ...currentSave, balance, sponsorships, injuries, personalTrainer: trainerActive && currentSave.personalTrainer, career, matchPlayedThisWeek: false, trainedThisWeek: false };
-    if (currentSave.week >= 10) return { ...common, season: currentSave.season + 1, week: 1, fixtures: makeFixtures(leagueTeams, currentSave.season + 1), leagueTable: tableFromFixtures(leagueTeams, []), offersGeneratedWeek: 0, sponsorOffersGeneratedWeek: 0, lastMatch: currentSave.lastMatch };
-    return { ...common, week: currentSave.week + 1 };
+    const nextWeek = nextSeasonWeek(currentSave.week, currentSave.season);
+    if (nextWeek.newSeason) return { ...common, ...nextWeek, fixtures: makeFixtures(leagueTeams, nextWeek.season), leagueTable: tableFromFixtures(leagueTeams, []), offersGeneratedWeek: 0, sponsorOffersGeneratedWeek: 0, lastMatch: currentSave.lastMatch };
+    return { ...common, ...nextWeek };
   });
   const hireAgent = () => setSave(s => s.agentHired || s.balance < 2500 || s.matchPlayedThisWeek ? s : { ...s, agentHired: true, balance: s.balance - 2500 });
   const generateOffers = () => setSave(s => {
@@ -164,12 +166,12 @@ export default function App({ initialSave, onSaveChange, onExit }: AppProps = {}
     return { ...s, balance: s.balance + bonus, contractActionSeason: s.season, player: { ...player, marketValue }, career: { ...s.career, marketValueHistory: recordMarketValuePoint(s.career.marketValueHistory, s.week, marketValue) } };
   });
   const content = () => {
-    if (page === 'match' && current) return <MatchCenter home={current.home} away={current.away} result={currentResult} fixtureNumber={save.week} clubId={save.clubId} playerId={save.player.id} initialFatigue={save.career.fatigue} tacticalStyle={save.tacticalStyle} onTacticChange={style => setSave(s => s.matchPlayedThisWeek ? s : { ...s, tacticalStyle: style })} onResult={onResult} onNextFixture={advance} />;
+    if (page === 'match' && current) return <MatchCenter home={current.home} away={current.away} result={currentResult} fixtureNumber={save.week} clubId={save.clubId} playerId={save.player.id} initialFatigue={save.career.fatigue} tacticalStyle={save.tacticalStyle} onTacticChange={style => setSave(s => s.matchPlayedThisWeek ? s : { ...s, tacticalStyle: style })} onResult={onResult} onNextFixture={() => navigate('dashboard')} />;
     if (page === 'season') return <SeasonCenter fixtures={save.fixtures} table={save.leagueTable} teams={teams} clubId={save.clubId} week={save.week} season={save.season} onPlay={() => navigate('match')} />;
     if (page === 'player') return <PlayerProfile player={save.player} career={save.career} academyDevelopment={save.academyDevelopment} careerPathway={save.careerPathway} season={save.season} week={save.week} />;
     if (page === 'market') return <Market save={save} onHireAgent={hireAgent} onGenerateOffers={generateOffers} onOfferAction={respondOffer} onSponsorOffers={generateSponsorOffers} onSponsorDecision={respondSponsor} onClauseChange={updateClause} onRenegotiate={renegotiate} />;
     if (page === 'lifestyle') return <Lifestyle save={save} player={save.player} onFocus={focus => setSave(s => s.trainedThisWeek ? s : { ...s, trainingFocus: focus })} onTrain={train} onBuyRecovery={buyRecoveryBoots} onHireTrainer={hireTrainer} />;
-    return <Dashboard save={save} player={save.player} clubName={club.name} onNavigate={navigate} nextOpponent={opponent.name} onAdvance={advance} />;
+    return <Dashboard save={save} player={save.player} clubName={club.name} onNavigate={navigate} nextOpponent={opponent.name} onAdvance={advance} advanceBlock={weekProgressionBlock(save)} />;
   };
   return <div className="min-h-screen bg-pitch-950 text-slate-100">
     {menuOpen && <button aria-label="Fechar menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 bg-black/60 lg:hidden" />}
