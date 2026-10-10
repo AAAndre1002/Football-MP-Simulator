@@ -89,6 +89,10 @@ export default function AppRoot() {
     onSignIn={auth.signIn}
     onSignUp={auth.signUp}
     onResetPassword={auth.resetPassword}
+    passwordRecoveryRequired={auth.passwordRecoveryRequired}
+    passwordRecoverySuccess={auth.passwordRecoverySuccess}
+    onUpdatePassword={auth.updatePassword}
+    onDismissPasswordRecoverySuccess={auth.dismissPasswordRecoverySuccess}
     onSignOut={signOut}
     onOpenSlot={openCloudSave}
     onCreateSlot={createCloudSave}
