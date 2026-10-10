@@ -14,8 +14,15 @@ export interface Contract {
 }
 export interface Player {
   id: string; name: string; age: number; nationality: string; position: PlayerPosition; overall: AttributeScore; attributes: PlayerAttributes;
-  /** Optional Phase 1 creator metadata; absent on legacy saves by design. */
-  potential?: AttributeScore; role?: string; secondaryPositions?: PlayerPosition[]; appearance?: { hairStyle: string; hairColor: string; eyeColor: string };
+  /** Current dynamic potential; absent on legacy saves by design. */
+  potential?: AttributeScore;
+  /** Potential assigned when the player was created; remains unchanged as potential develops. */
+  initialPotential?: AttributeScore;
+  /** Small accumulated weekly potential-development signal, persisted with saves. */
+  potentialMomentum?: number;
+  /** Most recent weekly potential movement: -1, 0 or +1. */
+  potentialTrend?: -1 | 0 | 1;
+  role?: string; secondaryPositions?: PlayerPosition[]; appearance?: { hairStyle: string; hairColor: string; eyeColor: string };
   heightCm?: number; weightKg?: number; preferredFoot?: 'right' | 'left' | 'ambidextrous'; birthCountry?: string; birthRegion?: string; birthCity?: string;
   contract?: Contract; marketValue?: number; morale?: number; coachRelationship?: number; fanRelationship?: number; mediaReputation?: number;
 }
@@ -41,7 +48,7 @@ export interface MatchSimulationOptions {
 export interface Fixture { id: string; week: number; homeTeamId: string; awayTeamId: string; result?: MatchResult; }
 export interface LeagueRow { teamId: string; played: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number; points: number; }
 export interface ValuePoint { week: number; value: number; }
-export interface MatchHistoryEntry { week: number; opponent: string; score: string; rating: number; goals: number; assists: number; yellowCards: number; redCards: number; }
+export interface MatchHistoryEntry { week: number; opponent: string; score: string; rating: number; /** Optional to keep older saves valid. */ minutes?: number; goals: number; assists: number; yellowCards: number; redCards: number; }
 export interface CareerStats {
   appearances: number; goals: number; assists: number; yellowCards: number; redCards: number; ratingTotal: number;
   /** Cumulative minutes played; optional for backward compatibility with older saves. */
