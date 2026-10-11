@@ -96,6 +96,10 @@ export function calculatePotential(overall: number, roleId: string, position: Pl
   if (!selected || !Number.isInteger(overall) || overall < 0 || overall > 100) throw new Error('Não foi possível calcular o potencial.');
   return Math.min(100, Math.max(overall, overall + 10 + selected.potentialBonus));
 }
+export const MAX_POTENTIAL_ROLLS = 3;
+export function hasPotentialRollsRemaining(completedRolls: number): boolean {
+  return Number.isInteger(completedRolls) && completedRolls >= 1 && completedRolls < MAX_POTENTIAL_ROLLS;
+}
 export function rollPotential(overall: number, roleId: string, position: PlayerPosition, random: () => number = Math.random): number {
   const selected = rolesForPosition(position).find(item => item.id === roleId);
   if (!selected || !Number.isInteger(overall) || overall < 0 || overall > 100) throw new Error('Não foi possível lançar o potencial.');

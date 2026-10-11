@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_FLAT_ATTRIBUTES, CAREER_SEASON, DEFAULT_CREATION, POSITION_DEFINITIONS, STARTING_AGE,
-  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, isPortugueseMunicipalityValid, profileForRole, rollPotential,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, hasPotentialRollsRemaining, isPortugueseMunicipalityValid, MAX_POTENTIAL_ROLLS, profileForRole, rollPotential,
   rolesForPosition, validateCreation, type PlayerCreationInput,
 } from './playerCreation';
 import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
@@ -70,6 +70,13 @@ describe('attribute profiles, bounds and derived ratings', () => {
     expect(rollPotential(64, 'box-to-box', 'CM', () => 0.999999)).toBe(79);
     expect(rollPotential(99, 'box-to-box', 'CM', () => 0.999999)).toBe(100);
     expect(() => rollPotential(64, 'box-to-box', 'CM', () => 1)).toThrow();
+  });
+  it('allows exactly three potential dice rolls in total, including the first automatic roll', () => {
+    expect(MAX_POTENTIAL_ROLLS).toBe(3);
+    expect(hasPotentialRollsRemaining(1)).toBe(true);
+    expect(hasPotentialRollsRemaining(2)).toBe(true);
+    expect(hasPotentialRollsRemaining(3)).toBe(false);
+    expect(hasPotentialRollsRemaining(0)).toBe(false);
   });
   it('rejects non-integer and out-of-range attribute values rather than silently accepting them', () => {
     const invalid = validInput({ attributes: { ...DEFAULT_CREATION.attributes, pace: 101 } });
