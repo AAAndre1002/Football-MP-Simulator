@@ -2,12 +2,15 @@
 
 Simulador de carreira de futebol em Português (Portugal), construído com React 18, TypeScript, Vite, Tailwind CSS e PWA. Combina gestão da carreira com partidas jogadas minuto a minuto. O modo offline guarda a carreira no navegador.
 
+**Estado: desenvolvimento. Não é uma release pronta.** Fluxos integrados e novas operações de save ainda precisam de testes completos, CI/preview e verificação de implementação publicada.
+
 ## Sistemas da carreira
 
 - Painel responsivo com estado físico e moral, próximo jogo, classificação, historial e gráficos SVG de valor de mercado e overall.
 - Motor de jogo determinístico orientado por atributos; sessão ao vivo por minuto, eventos, posse, remates, precisão de passe, cartões, substituições e pausas táticas. Posse, bola nas costas, remate de longe e pressão alta alteram o modelo e as estatísticas.
 - Treino técnico, físico e mental em três intensidades; fadiga, progressão, risco e duração de lesões, recuperação semanal e indisponibilidade de jogadores lesionados.
-- Mercado influenciado pela forma, reputação, valor e agente; propostas, contra-propostas, recomendação negocial, salários, prémios, cláusula e duração contratual.
+- Estimativa interna e explicável de valor do jogador (nível, idade, potencial, forma, minutos, golos/assistências, duração do contrato e reputação); propostas, contra-propostas, salários, prémios e cláusula.
+- Hubs de saves offline/nuvem separados, slots locais export/import JSON com schema versionado, validação, renomeação e eliminação; o ranking online continua deliberadamente bloqueado até haver validação segura no servidor.
 - Conferência de imprensa pós-jogo com impacto nas relações com treinador, adeptos e comunicação social.
 - Equipamento de recuperação, treinador pessoal e patrocínios com custos e efeitos persistentes.
 - Liga, calendário, classificação, autenticação preparada para Supabase e modo offline preservados.
@@ -48,7 +51,14 @@ O workflow de GitHub Actions executa os testes, o type-check e a build em cada p
 - `src/types/index.ts`: contratos de dados da carreira, partidas e saves; saves existentes são normalizados em `src/hooks/useGameState.ts`.
 - `src/engine/matchEngine.ts`: simulação pura determinística; `src/engine/matchSession.ts`: runner persistente por minuto e decisões de intervalo.
 - `src/engine/playerDevelopment.ts`, `transferMarket.ts`, `pressConference.ts`: regras de desenvolvimento, mercado e imprensa, separadas da interface.
-- `src/engine/season.ts` e `src/data/mockTeams.ts`: fixtures, tabela e equipas fictícias.
+- `src/engine/season.ts` e `src/data/mockTeams.ts`: fixtures, tabela e equipas fictícias; `src/data/competitionClubs.ts`: camada só de nomes de clubes/competições reais com provenance, sem plantéis.
+- `src/lib/saveTransfer.ts`: envelope JSON versionado, validação de importação e normalização compatível com GameSave legado.
 - `src/components/`: vistas de carreira; `src/App.tsx` liga estado, ecrãs e sistemas de jogo.
 
 Para acrescentar uma mecânica: defina tipos em `types/index.ts`, implemente regra pura num módulo de `engine/`, cubra-a com testes determinísticos em `src/engine/*.test.ts`, normalize campos novos para saves antigos e só depois ligue a regra a `useGameState` e aos componentes. Não coloque chaves privadas em código cliente; preserve compatibilidade com o modo offline.
+
+## Player-only new-career flow and data status
+
+The explicit new offline-career and signed-in cloud-slot actions now lead through the four-step player creator and a separate, playable fictional academy chapter before career entry. See [PLAYER_CREATION_INTEGRATION.md](./PLAYER_CREATION_INTEGRATION.md) for save safety, version compatibility, and provenance notes.
+
+The career-pathway picker includes a limited set of real club and competition names with source URLs/season notes; these are factual references only, not real offers, current rosters, partnerships or licensed data. The displayed offer context (rating/role/minutes) is invented simulation data. No real rosters, player/staff data, badges or photos are included. No redistribution licence is confirmed; see [DATA_SOURCES.md](./DATA_SOURCES.md) for provenance and limits. The main season engine still uses clearly fictional sample clubs and generated players. No authentication or account security behavior was changed.

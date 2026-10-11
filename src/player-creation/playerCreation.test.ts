@@ -1,0 +1,150 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ALL_FLAT_ATTRIBUTES, CAREER_SEASON, DEFAULT_CREATION, POSITION_DEFINITIONS, STARTING_AGE,
+  calculateOverall, calculatePotential, compatibleSecondaryPositions, createPlayer, hasPotentialRollsRemaining, isPortugueseMunicipalityValid, MAX_POTENTIAL_ROLLS, profileForRole, rollPotential,
+  rolesForPosition, validateCreation, type PlayerCreationInput,
+} from './playerCreation';
+import { COUNTRY_OPTIONS, NATIONALITY_OPTIONS, PORTUGAL_REGIONS } from './geographyData';
+
+function validInput(overrides: Partial<PlayerCreationInput> = {}): PlayerCreationInput {
+  return {
+    ...DEFAULT_CREATION,
+    name: 'Jogador Teste', nationality: 'Portugal', birthCountry: 'Portugal', birthRegion: 'Aveiro', birthCity: 'Santa Maria da Feira',
+    ...overrides,
+    appearance: { ...DEFAULT_CREATION.appearance, ...overrides.appearance },
+    attributes: { ...DEFAULT_CREATION.attributes, ...overrides.attributes },
+  };
+}
+
+describe('position and role compatibility', () => {
+  it('restricts goalkeepers to the goal and offers only goalkeeper role families', () => {
+    expect(compatibleSecondaryPositions('GK')).toEqual([]);
+    expect(rolesForPosition('GK').length).toBeGreaterThan(0);
+    expect(validateCreation(validInput({ primaryPosition: 'GK', roleId: 'false-nine' }))).toContain('A função tem de ser compatível com a posição principal.');
+  });
+  it('allows central defenders compatible fullback and defensive-midfield options', () => {
+    expect(compatibleSecondaryPositions('CB')).toEqual(expect.arrayContaining(['LB','RB','CDM']));
+  });
+  it('limits left and right fullback options to same-side wide positions and centre-back', () => {
+    expect(compatibleSecondaryPositions('LB')).toEqual(['LM','LW','CB']);
+    expect(compatibleSecondaryPositions('RB')).toEqual(['RM','RW','CB']);
+  });
+  it('allows a striker CAM/wide-forward cover, but never defensive midfield', () => {
+    expect(compatibleSecondaryPositions('ST')).toEqual(['CAM','LW','RW']);
+    expect(validateCreation(validInput({ primaryPosition: 'ST', roleId: 'poacher', secondaryPositions: ['CDM'] })).length).toBeGreaterThan(0);
+  });
+  it('limits and rejects duplicate, primary-as-secondary, or incompatible choices', () => {
+    expect(validateCreation(validInput({ primaryPosition: 'CM', roleId: 'box-to-box', secondaryPositions: ['CM','CDM','CAM'] })).length).toBeGreaterThan(0);
+    expect(validateCreation(validInput({ primaryPosition: 'CM', roleId: 'box-to-box', secondaryPositions: ['CDM','CDM'] })).length).toBeGreaterThan(0);
+  });
+});
+
+describe('attribute profiles, bounds and derived ratings', () => {
+  it('provides templates for every supported position and matching role', () => {
+    for (const item of POSITION_DEFINITIONS) {
+      for (const definition of item.roles) {
+        const profile = profileForRole(item.position, definition.id);
+        expect(ALL_FLAT_ATTRIBUTES.every(key => Number.isInteger(profile[key]) && profile[key] >= 0 && profile[key] <= 100)).toBe(true);
+      }
+    }
+  });
+  it('produces position/function-specific profiles and role-weighted overall', () => {
+    const cb = profileForRole('CB', 'stopper');
+    const cm = profileForRole('CM', 'playmaker');
+    const falseNine = profileForRole('ST', 'false-nine');
+    expect(cb.tackling).toBeGreaterThan(cm.tackling);
+    expect(cm.vision).toBeGreaterThan(profileForRole('CM', 'holding-midfielder').vision);
+    expect(falseNine.vision).toBeGreaterThan(profileForRole('ST', 'poacher').vision);
+    expect(calculateOverall(cb, 'CB', 'stopper')).not.toBe(calculateOverall(cm, 'CM', 'playmaker'));
+    expect(calculatePotential(70, 'false-nine', 'ST')).toBeGreaterThan(calculateOverall(profileForRole('ST','false-nine'), 'ST', 'false-nine'));
+  });
+  it('returns the weighted attribute score as initial OVR and adds the role bonus to starting potential', () => {
+    const profile = Object.fromEntries(ALL_FLAT_ATTRIBUTES.map(key => [key, 64])) as PlayerCreationInput['attributes'];
+    const overall = calculateOverall(profile, 'CM', 'box-to-box');
+    expect(overall).toBe(64);
+    expect(calculatePotential(overall, 'box-to-box', 'CM')).toBe(74);
+    expect(calculatePotential(97, 'false-nine', 'ST')).toBe(100);
+  });
+  it('rolls starting potential as a bounded random dice result, never below OVR', () => {
+    expect(rollPotential(64, 'box-to-box', 'CM', () => 0)).toBe(69);
+    expect(rollPotential(64, 'box-to-box', 'CM', () => 0.999999)).toBe(79);
+    expect(rollPotential(99, 'box-to-box', 'CM', () => 0.999999)).toBe(100);
+    expect(() => rollPotential(64, 'box-to-box', 'CM', () => 1)).toThrow();
+  });
+  it('allows exactly three potential dice rolls in total, including the first automatic roll', () => {
+    expect(MAX_POTENTIAL_ROLLS).toBe(3);
+    expect(hasPotentialRollsRemaining(1)).toBe(true);
+    expect(hasPotentialRollsRemaining(2)).toBe(true);
+    expect(hasPotentialRollsRemaining(3)).toBe(false);
+    expect(hasPotentialRollsRemaining(0)).toBe(false);
+  });
+  it('rejects non-integer and out-of-range attribute values rather than silently accepting them', () => {
+    const invalid = validInput({ attributes: { ...DEFAULT_CREATION.attributes, pace: 101 } });
+    expect(validateCreation(invalid)).toContain('Todos os atributos têm de ser números inteiros entre 0 e 100.');
+    expect(() => createPlayer(invalid)).toThrow();
+    expect(validateCreation(validInput({ attributes: { ...DEFAULT_CREATION.attributes, passing: 3.4 } })).length).toBeGreaterThan(0);
+  });
+  it('clamps a derived profile to the supported inclusive range 0–100', () => {
+    const profile = profileForRole('CB', 'stopper');
+    expect(Math.min(...Object.values(profile))).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...Object.values(profile))).toBeLessThanOrEqual(100);
+  });
+});
+
+describe('validated nationality and birthplace catalogues', () => {
+  it('offers ISO-coded country choices and the official Portuguese municipality set', () => {
+    expect(COUNTRY_OPTIONS.length).toBeGreaterThan(250);
+    expect(new Set(COUNTRY_OPTIONS.map(country => country.code)).size).toBe(COUNTRY_OPTIONS.length);
+    expect(COUNTRY_OPTIONS.some(country => country.code === 'AQ')).toBe(true);
+    expect(NATIONALITY_OPTIONS.some(country => ['AQ','BV','GS','HM','IO','SJ','TF','UM'].includes(country.code))).toBe(false);
+    expect(validateCreation(validInput({ nationality: 'Antártida' })).some(error => error.includes('nacionalidade'))).toBe(true);
+    expect(PORTUGAL_REGIONS.reduce((total, region) => total + region.municipalities.length, 0)).toBe(308);
+    expect(isPortugueseMunicipalityValid('Aveiro', 'Santa Maria da Feira')).toBe(true);
+    expect(isPortugueseMunicipalityValid('Porto', 'Santa Maria da Feira')).toBe(false);
+  });
+  it('rejects arbitrary nationality, district and municipality text', () => {
+    expect(validateCreation(validInput({ nationality: 'País Inventado' })).some(error => error.includes('nacionalidade'))).toBe(true);
+    expect(validateCreation(validInput({ birthCity: 'Cidade Inventada' })).some(error => error.includes('concelho'))).toBe(true);
+    expect(validateCreation(validInput({ birthRegion: 'Distrito Inventado' })).some(error => error.includes('concelho'))).toBe(true);
+  });
+  it('keeps a foreign birthplace accurate without inventing unverified local divisions', () => {
+    const player = createPlayer(validInput({ nationality: 'Brasil', birthCountry: 'França', birthRegion: '', birthCity: '' }), 'foreign-born');
+    expect(player.player.nationality).toBe('Brasil');
+    expect(player.player.birthCountry).toBe('França');
+    expect(player.player.birthRegion).toBe('');
+    expect(player.player.birthCity).toBe('');
+    expect(validateCreation(validInput({ birthCountry: 'França', birthRegion: 'Paris', birthCity: 'Paris' })).some(error => error.includes('dados validados'))).toBe(true);
+  });
+});
+
+describe('new career defaults', () => {
+  it('generates a player ID when the caller does not provide one', () => {
+    const created = createPlayer(validInput());
+    expect(created.player.id).toMatch(/^player-/);
+  });
+  it('always creates the player at 16 in the 2026/27 season', () => {
+    const created = createPlayer(validInput(), 'test-player');
+    expect(created.player.age).toBe(STARTING_AGE);
+    expect(created.season).toBe(CAREER_SEASON);
+    expect(created.player.position).toBe('CM');
+    expect(created.player.potential).toBeGreaterThanOrEqual(created.player.overall);
+    expect(created.player.initialPotential).toBe(created.player.potential);
+    expect(created.player.potentialMomentum).toBe(0);
+  });
+  it('stores the dice result as the immutable initial potential and rejects invalid values', () => {
+    const input = validInput();
+    const overall = calculateOverall(input.attributes, input.primaryPosition, input.roleId);
+    const created = createPlayer(input, 'rolled-potential', overall + 7);
+    expect(created.player.potential).toBe(overall + 7);
+    expect(created.player.initialPotential).toBe(overall + 7);
+    expect(() => createPlayer(input, 'below-overall', overall - 1)).toThrow();
+    expect(() => createPlayer(input, 'above-cap', 101)).toThrow();
+  });
+  it('keeps appearance, physical details, dominant foot and birthplace on the created player', () => {
+    const created = createPlayer(validInput({ preferredFoot: 'ambidextrous', heightCm: 188, weightKg: 83, birthRegion: 'Porto', birthCity: 'Porto' }), 'created');
+    expect(created.player.preferredFoot).toBe('ambidextrous');
+    expect(created.player.heightCm).toBe(188);
+    expect(created.player.weightKg).toBe(83);
+    expect(created.player.birthCity).toBe('Porto');
+  });
+});

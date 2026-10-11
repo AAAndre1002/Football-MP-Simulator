@@ -56,3 +56,89 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .field-eye { position:absolute; top:50%; right:14px; color:#a3a3a3; transform:translateY(-50%); }
 @media (max-width:640px) { .opening-title { font-size:clamp(2.5rem,13vw,3.7rem); } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
+
+/* Season-mode polish: one shared visual system across the lobby, creator and career screens. */
+:root {
+  --surface: #111715;
+  --surface-raised: #171f1a;
+  --line-soft: rgba(226, 232, 240, .085);
+  --accent: #c8f36b;
+  --accent-warm: #f1d777;
+}
+html { background: #080c0a; scroll-behavior: smooth; }
+body { color: #eef2eb; background: #080c0a; }
+button, input, select { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid rgba(200,243,107,.85); outline-offset: 3px; }
+::selection { background: rgba(200,243,107,.28); color: #fff; }
+.career-shell {
+  background: radial-gradient(ellipse at 82% -8%, rgba(108, 145, 75, .10), transparent 35%),
+    radial-gradient(ellipse at 4% 54%, rgba(65, 91, 62, .055), transparent 33%), #080c0a;
+}
+.career-sidebar {
+  background: linear-gradient(180deg, rgba(18,26,21,.98), rgba(10,15,12,.99));
+  border-color: rgba(204, 240, 170, .09);
+  box-shadow: 18px 0 50px rgba(0,0,0,.17);
+}
+.career-shell header.sticky {
+  background: rgba(8, 12, 10, .86);
+  border-color: rgba(204,240,170,.09);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+.career-shell main { animation: enter-view .35s ease-out both; }
+.panel {
+  border-color: var(--line-soft);
+  background: linear-gradient(145deg, rgba(20,27,22,.96), rgba(13,18,15,.97));
+  box-shadow: 0 18px 42px rgba(0,0,0,.16), inset 0 1px rgba(255,255,255,.018);
+}
+.btn-primary { box-shadow: 0 8px 28px rgba(183,231,102,.12); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 34px rgba(183,231,102,.2); }
+.btn-secondary { border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.035); }
+.field-input { min-height: 46px; background: rgba(5,9,7,.72); }
+.field-input:focus { background: rgba(10,15,11,.95); }
+
+.opening-screen { background: #080b09; }
+.opening-screen::before {
+  background: radial-gradient(ellipse at 72% 20%, rgba(169, 220, 115, .10), transparent 34%),
+    radial-gradient(ellipse at 24% 47%, rgba(242, 203, 74, .055), transparent 38%),
+    linear-gradient(180deg, #111713 0%, #090d0a 32rem, #070907 100%);
+}
+.stadium-glow {
+  opacity: .62;
+  background: radial-gradient(ellipse at 70% 32%, rgba(183,225,137,.08), transparent 42%),
+    linear-gradient(115deg, transparent 47%, rgba(236,246,223,.018) 47.2%, transparent 48%);
+}
+.opening-screen > header { border-color: rgba(214,237,193,.10); background: rgba(7,11,8,.25); backdrop-filter: blur(12px); }
+.opening-mark { border-radius: 12px; background: linear-gradient(145deg,#e1f5a3,#a8d951); border-color: rgba(231,249,191,.55); box-shadow: 0 0 28px rgba(183,231,102,.17); }
+.opening-brand { letter-spacing: .09em; }
+.opening-status { border-color: rgba(225,238,218,.12); background: rgba(255,255,255,.025); }
+.opening-status.is-online span { background: #a8df67; box-shadow: 0 0 10px #a8df67; }
+.opening-eyebrow { color: #d8ee9c; }
+.opening-eyebrow > span { background: #c8f36b; }
+.opening-title { max-width: 12ch; text-wrap: balance; text-shadow: 0 14px 54px rgba(0,0,0,.4); }
+.opening-title span { color: #c8f36b; }
+.opening-card {
+  border-color: rgba(218,238,213,.105);
+  border-radius: 18px;
+  background: linear-gradient(150deg, rgba(20,26,22,.96), rgba(10,14,11,.97));
+  box-shadow: 0 26px 90px rgba(0,0,0,.34), inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter: blur(14px);
+}
+.opening-card-icon { border-color: rgba(200,243,107,.25); border-radius: 11px; color: #d4f28b; background: rgba(200,243,107,.055); }
+.opening-choice, .opening-slot { border-color: rgba(255,255,255,.09); border-radius: 11px; background: rgba(4,8,6,.55); }
+.opening-choice:hover, .opening-slot:hover { border-color: rgba(200,243,107,.42); background: rgba(200,243,107,.04); }
+.opening-choice-icon { border-radius: 10px; background: rgba(200,243,107,.08); color: #d4f28b; }
+.opening-choice strong { font-family: inherit; letter-spacing: .06em; }
+.opening-cta { border-color: #c8f36b; border-radius: 10px; background: linear-gradient(135deg,#d9f594,#b7e65a); letter-spacing: .08em; box-shadow: 0 8px 28px rgba(183,231,102,.13); }
+.opening-cta:hover:not(:disabled) { background: #e4f9b0; box-shadow: 0 10px 34px rgba(183,231,102,.24); }
+.opening-count { border-color: rgba(255,255,255,.13); border-radius: 7px; }
+.field-input { border-radius: 11px; border-color: rgba(255,255,255,.12); }
+.player-name-input { min-height: 58px; font-size: 18px; font-weight: 650; letter-spacing: -.01em; background: linear-gradient(100deg,rgba(200,243,107,.045),rgba(0,0,0,.38)); }
+
+@keyframes enter-view { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 640px) {
+  .career-shell main { padding: 1rem; }
+  .opening-screen .opening-card { padding: 18px; }
+  .opening-screen .opening-title { font-size: clamp(2.55rem, 13.5vw, 3.65rem); }
+  .player-name-input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .career-shell main { animation: none; } }

@@ -1,4 +1,4 @@
-import type { InjuryStatus, Player, PlayerAttributes, TrainingFocus } from '../types';
+import type { InjuryStatus, Player, PlayerAttributes, TrainingFocus, ValuePoint } from '../types';
 
 export type TrainingIntensity = 'recovery' | 'balanced' | 'high';
 export interface TrainingInput {
@@ -32,7 +32,7 @@ function improve(attributes: PlayerAttributes, focus: TrainingFocus, gain: numbe
 /** Applies one training session using explicit randomness, so saves and tests are reproducible. */
 export function applyTraining(input: TrainingInput): TrainingResult {
   const { player, focus, random } = input;
-  const intensityMultiplier = input.intensity === 'high' ? 1.45 : input.intensity === 'recovery' ? 0.5 : 1;
+  const intensityMultiplier = input.intensity === 'high' ? 1.55 : input.intensity === 'recovery' ? 0.5 : 1;
   const ageMultiplier = player.age <= 21 ? 1.18 : player.age <= 27 ? 1 : player.age <= 31 ? 0.78 : 0.58;
   const trainerMultiplier = input.personalTrainer ? 1.2 : 1;
   const currentValue = focus in player.attributes.technical
@@ -41,7 +41,7 @@ export function applyTraining(input: TrainingInput): TrainingResult {
       ? player.attributes.physical[focus as keyof PlayerAttributes['physical']]
       : player.attributes.mental[focus as keyof PlayerAttributes['mental']];
   const potentialFactor = clamp((102 - currentValue) / 42, 0.08, 1);
-  const baseGain = (0.24 + random() * 0.48) * intensityMultiplier * ageMultiplier * trainerMultiplier * potentialFactor;
+  const baseGain = (0.4 + random() * 0.6) * intensityMultiplier * ageMultiplier * trainerMultiplier * potentialFactor;
   const attributeGain = Math.round(baseGain * 10) / 10;
   const fatigueCost = input.intensity === 'high' ? 19 : input.intensity === 'recovery' ? 4 : 10;
   const fatigue = clamp(input.fatigue + fatigueCost - (input.personalTrainer ? 3 : 0), 0, 100);
@@ -73,12 +73,71 @@ export function recoverInjuries(injuries: InjuryStatus[] = []): InjuryStatus[] {
   return injuries.map(injury => ({ ...injury, weeksRemaining: Math.max(0, injury.weeksRemaining - 1) })).filter(injury => injury.weeksRemaining > 0);
 }
 
-export function calculateMarketValue(player: Player, recentRatings: number[] = []): number {
-  const recent = recentRatings.slice(-5);
-  const form = recent.length ? recent.reduce((sum, rating) => sum + rating, 0) / recent.length : 6;
+export interface MarketValueContext {
+  appearances?: number;
+  totalMinutes?: number;
+  goals?: number;
+  assists?: number;
+  /** Remaining contract years, clamped to 0–5. Omit to derive from contract dates. */
+  contractYearsRemaining?: number;
+}
+export interface MarketValueBreakdown {
+  estimatedValue: number;
+  baseTalentValue: number;
+  ageFactor: number;
+  potentialFactor: number;
+  formFactor: number;
+  minutesFactor: number;
+  contributionFactor: number;
+  contractFactor: number;
+  reputationFactor: number;
+  formRating: number;
+}
+
+/** Simulated career date: season 1 opens 1 July 2026; the ten rounds are spaced across the season. */
+export function remainingContractYears(player: Player, season = 1, week = 1): number | undefined {
+  const endDate = player.contract?.endDate;
+  if (!endDate) return undefined;
+  const end = Date.parse(`${endDate.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(end)) return undefined;
+  const monthOffset = Math.max(0, Math.min(9, Math.floor(week) - 1));
+  const currentSeasonDate = Date.UTC(2026 + Math.max(0, Math.floor(season) - 1), 6 + monthOffset, 1);
+  return Math.max(0, (end - currentSeasonDate) / (365.25 * 24 * 60 * 60 * 1000));
+}
+
+/** Transparent, deterministic game-economy estimate; not a real-world appraisal. */
+export function explainMarketValue(player: Player, recentRatings: number[] = [], context: MarketValueContext = {}): MarketValueBreakdown {
+  const recent = recentRatings.slice(-5).filter(Number.isFinite);
+  const formRating = recent.length ? recent.reduce((sum, rating) => sum + clamp(rating, 0, 10), 0) / recent.length : 6;
   const ageFactor = player.age <= 20 ? 1.28 : player.age <= 23 ? 1.18 : player.age <= 27 ? 1 : player.age <= 30 ? 0.78 : player.age <= 33 ? 0.55 : 0.32;
-  const formFactor = clamp(1 + (form - 6) * 0.07, 0.62, 1.42);
+  const formFactor = clamp(1 + (formRating - 6) * 0.07, 0.62, 1.42);
+  const appearances = Math.max(0, context.appearances ?? 0);
+  const minutesPerAppearance = appearances > 0 ? Math.max(0, context.totalMinutes ?? appearances * 70) / appearances : 0;
+  const minutesFactor = appearances === 0 ? 0.8 : clamp(0.55 + (minutesPerAppearance / 90) * 0.45, 0.55, 1);
+  const contributionRate = appearances > 0 ? ((Math.max(0, context.goals ?? 0) + Math.max(0, context.assists ?? 0)) / appearances) : 0;
+  const contributionFactor = clamp(0.9 + contributionRate * 0.2, 0.9, 1.35);
+  let remainingYears = context.contractYearsRemaining;
+  if (remainingYears === undefined && player.contract?.endDate) {
+    const end = Date.parse(`${player.contract.endDate.slice(0, 10)}T00:00:00Z`);
+    if (Number.isFinite(end)) remainingYears = (end - Date.UTC(2026, 6, 1)) / (365.25 * 24 * 60 * 60 * 1000);
+  }
+  const contractFactor = remainingYears === undefined ? 1 : clamp(0.72 + clamp(remainingYears, 0, 5) * 0.09, 0.72, 1.17);
   const reputationFactor = clamp(0.8 + (player.mediaReputation ?? 50) / 250, 0.8, 1.25);
-  const talentValue = Math.pow(clamp(player.overall, 1, 99), 3) * 7.5;
-  return Math.round(clamp(talentValue * ageFactor * formFactor * reputationFactor, 10_000, 250_000_000));
+  const overall = clamp(player.overall, 1, 99);
+  const potential = clamp(player.potential ?? overall, overall, 99);
+  const baseTalentValue = Math.pow(overall, 3) * 10;
+  const potentialFactor = clamp(1 + (potential - overall) * 0.012, 1, 1.6);
+  const estimatedValue = Math.round(clamp(baseTalentValue * ageFactor * potentialFactor * formFactor * minutesFactor * contributionFactor * contractFactor * reputationFactor, 10_000, 250_000_000));
+  return { estimatedValue, baseTalentValue, ageFactor, potentialFactor, formFactor, minutesFactor, contributionFactor, contractFactor, reputationFactor, formRating };
+}
+
+export function calculateMarketValue(player: Player, recentRatings: number[] = [], context: MarketValueContext = {}): number {
+  return explainMarketValue(player, recentRatings, context).estimatedValue;
+}
+
+export function recordMarketValuePoint(points: ValuePoint[] | undefined, week: number, value: number): ValuePoint[] {
+  const history = points ?? [];
+  const last = history[history.length - 1];
+  const next = last?.week === week ? [...history.slice(0, -1), { week, value }] : [...history, { week, value }];
+  return next.slice(-30);
 }

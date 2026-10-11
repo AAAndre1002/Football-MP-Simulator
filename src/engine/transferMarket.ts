@@ -6,7 +6,7 @@ export interface OfferContext { player: Player; currentClubId: string; clubs: Te
 
 export function generateTransferOffers(context: OfferContext): TransferOffer[] {
   const { player, currentClubId, clubs, season, week, agentHired, random } = context;
-  const value = calculateMarketValue(player, context.recentRatings);
+  const value = player.marketValue ?? calculateMarketValue(player, context.recentRatings);
   const form = context.recentRatings?.length ? context.recentRatings.slice(-5).reduce((sum, x) => sum + x, 0) / Math.min(5, context.recentRatings.length) : 6;
   const reputation = player.mediaReputation ?? 50;
   const interest = clamp(0.12 + (player.overall - 55) * 0.017 + (form - 5.5) * 0.045 + (reputation - 40) * 0.003 + (agentHired ? 0.22 : 0), 0.05, 0.96);
@@ -40,7 +40,7 @@ export function counterOffer(offer: TransferOffer, player: Player, agentHired: b
 }
 
 export function evaluateOffer(offer: TransferOffer, player: Player): { score: number; recommendation: 'accept' | 'negotiate' | 'reject' } {
-  const value = calculateMarketValue(player);
+  const value = player.marketValue ?? calculateMarketValue(player);
   const wageRatio = offer.weeklyWage / Math.max(1, player.contract?.weeklyWage ?? 1);
   const score = Math.round(clamp((offer.fee / Math.max(value, 1)) * 55 + clamp(wageRatio, 0, 2.5) * 18 + (offer.contractYears >= 3 ? 8 : 0), 0, 100));
   return { score, recommendation: score >= 72 ? 'accept' : score >= 48 ? 'negotiate' : 'reject' };
